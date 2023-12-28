@@ -26,7 +26,7 @@ fi
 echo upload_successful=$upload_sucessful
 
 if [ "$upload_sucessful" = true ] && [ "$1" = "m" ]; then
-    echo Waiting before loading serial monitor...
-    sleep 1
+    # echo Waiting before loading serial monitor...
+    # sleep 1
     bash serial_monitor.sh
 fi

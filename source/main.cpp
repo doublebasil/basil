@@ -27,13 +27,29 @@ int main( void )
     // OLED screen initialisation
     if( oled_init( 19, 18, 17, 16, 20, 0, 14000000, 128, 128 ) != 0 )
     {
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
         for( ;; )
         {
             printf( "oled_init failed\n" );
             sleep_ms( 1000 );
         }
     }
+    oled_terminalInit( 12, 0xFD44 );
+    oled_terminalWrite( "oled init" );
+    oled_terminalWrite( "cyw43 init" );
     // SD card driver init
+    if( !sd_init_driver() )
+    {
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+        for( ;; )
+        {
+            printf( "sd_init_driver failed\n" );
+            sleep_ms( 1000 );
+        }
+    }
+    oled_terminalWrite( "sd driver init" );
+    oled_terminalWrite( "connecting to ssid:" );
+    oled_terminalWrite( WIFI_SSID );
 
 
     printf("Running\n");

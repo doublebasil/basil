@@ -5,11 +5,11 @@
 #define OLED_INCLUDE_TEST_FUNCTION
 #define OLED_INCLUDE_LOADING_BAR_HORIZONTAL
 #define OLED_INCLUDE_LOADING_CIRCLE
-// #define OLED_INCLUDE_FONT8                      // Uses ~760 bytes
+#define OLED_INCLUDE_FONT8                      // Uses ~760 bytes
 #define OLED_INCLUDE_FONT12                     // Uses ~1144 bytes
-// #define OLED_INCLUDE_FONT16                     // Uses ~3044 bytes
+#define OLED_INCLUDE_FONT16                     // Uses ~3044 bytes
 #define OLED_INCLUDE_FONT20                     // Uses ~3804 bytes
-// #define OLED_INCLUDE_FONT24                     // Uses ~6844 bytes
+#define OLED_INCLUDE_FONT24                     // Uses ~6844 bytes
 #define OLED_WRITE_TEXT_CHARACTER_GAP     ( 0 ) // Number of pixels between characters
 #define OLED_INCLUDE_SD_IMAGES
 #define OLED_INCLUDE_QR_GENERATOR
@@ -33,7 +33,7 @@
  * rstPin: GPIO on pico connected to RST (Reset) on the display, Will be used as GPIO
  * spiOutput: set to 0 for pico SPI0 and 1 for pico SPI1. See pico pin diagram, depends on your din and clk
  *
- * returns: int 0 on success
+ * returns: void
  */
 int oled_init( int8_t dinPin, int8_t clkPin, int8_t csPin, int8_t dcPin,
     int8_t rstPin, int8_t spiOutput, unsigned int baudrate, uint8_t displayWidth,
@@ -301,6 +301,17 @@ void oled_terminalClear( void );
  * returns: void
  */
 void oled_terminalSetLine( uint8_t line );
+
+/*
+ * Function: oled_terminalSetNewColour
+ * --------------------
+ * Change the colour of the terminal
+ *
+ * colour: Colour to change the terminal to
+ *
+ * returns: void
+ */
+void oled_terminalSetNewColour( uint16_t colour );
 
 /*
  * Function: oled_terminalClear

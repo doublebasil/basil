@@ -1013,6 +1013,35 @@ void oled_terminalSetLine( uint8_t line )
     m_terminalIsLineTemp = false;
 }
 
+void oled_terminalSetNewColour( uint16_t colour )
+{
+    uint8_t* currentBitmapPtr; // What the screen currently has
+    uint8_t* desiredBitmapPtr; // We need to change this bitmap to what we want the screen to have next
+    if( m_terminalBitmapState == e_terminalBitmap1Next )
+    {
+        desiredBitmapPtr = m_terminalBitmapPtr1;
+        currentBitmapPtr = m_terminalBitmapPtr2;
+    }
+    else
+    {
+        desiredBitmapPtr = m_terminalBitmapPtr2;
+        currentBitmapPtr = m_terminalBitmapPtr1;
+    }
+
+    // Copy current to desired and make current blank to force all pixels to be updated
+    for( uint16_t index = 0U; index < m_terminalBitmapCallocSize; index++ )
+    {
+        desiredBitmapPtr[index] = currentBitmapPtr[index];
+        currentBitmapPtr[index] = 0x0;
+    }
+
+    // Change the terminal colour
+    m_terminalFontColour = colour;
+
+    // Push
+    m_terminalPushBitmap();
+}
+
 void oled_terminalDeinit( void ) 
 {
     // Free the memory and set the bitmap pointers to NULL. Never free a NULL pointer
@@ -1128,7 +1157,10 @@ int oled_sdWriteImage( const char filename[], uint8_t originX, uint8_t originY )
     // Close the file
     fr = f_close( &fil );
     if( fr != FR_OK )
+    {
+        f_unmount( "0:" );
         return 3;
+    }
 
     // Unmount the SD card
     f_unmount( "0:" );

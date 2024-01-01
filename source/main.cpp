@@ -33,7 +33,8 @@
 // SD CARD DEFINITIONS IN source/no-OS-FatFS-SD-SPI-Rpi-Pico/FatFs_SPI/sd_driver/hw_config.c
 
 /* --- OTHER DEFINITIONS --- */
-#define TERMINAL_COLOUR                 ( 0xFD44 )
+#define TERMINAL_NORMAL_COLOUR  ( 0xFD44 )
+#define TERMINAL_ERROR_COLOUR   ( 0xD8A7 )
 // If the SD card could not be read or the NTP server could not be connected to,
 // the following settings will be used as defaults
 #define DEFAULT_WATERING_PERIOD_HOURS   ( 12 )
@@ -65,7 +66,7 @@ int main( void )
     m_oledInit();
 
     // Create a terminal for the display  "MAX TERMINAL WIDTH"
-    oled_terminalInit( 12, TERMINAL_COLOUR );
+    oled_terminalInit( 12, TERMINAL_NORMAL_COLOUR );
     oled_terminalWrite( "OLED initialised" );
     oled_terminalWrite( "CYW43 initialised" );
 

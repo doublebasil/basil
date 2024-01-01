@@ -16,6 +16,6 @@
  *
  * returns: void
  */
-void pump_init( uint8_t motorControlPin, uint8_t motorAdcPin );
+void pump_init( uint8_t pumpControlPin, uint8_t pumpAdcPin );
 
 #endif // define MOTOR_HPP

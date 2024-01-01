@@ -2,6 +2,8 @@ add_executable(${PROJECT_NAME}
     main.cpp
     ntp/ntp.cpp
     oled/oled.cpp
+    pump/pump.cpp
+    settings/settings.cpp
     QR-Code-generator/qrcodegen.c
     # Add other cpp files here, including their directory, e.g.
     # webserver/webserver.cpp
@@ -16,6 +18,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/ntp
     ${CMAKE_CURRENT_LIST_DIR}/oled
     ${CMAKE_CURRENT_LIST_DIR}/oled/font
+    ${CMAKE_CURRENT_LIST_DIR}/pump
+    ${CMAKE_CURRENT_LIST_DIR}/settings
     ${CMAKE_CURRENT_LIST_DIR}/QR-Code-generator
     # Add the folders that are needed for compile, e.g.
     # ${CMAKE_CURRENT_LIST_DIR}/webserver
@@ -25,6 +29,7 @@ target_link_libraries(${PROJECT_NAME}
     pico_stdlib
     pico_cyw43_arch_lwip_threadsafe_background
     pico_lwip_http
+    hardware_adc
     hardware_watchdog
     FatFs_SPI
     # You'll need to link other libraries for other pico functions

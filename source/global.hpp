@@ -13,7 +13,7 @@ typedef struct
     bool settingsReadOk;
     char wifiSsid[WIFI_SSID_MAX_LEN];
     char wifiPassword[WIFI_PASSWORD_MAX_LEN];
-    int16_t wateringTimes[MAX_NUMBER_OF_WATERING_TIMES];
+    int32_t wateringTimes[MAX_NUMBER_OF_WATERING_TIMES]; // Seconds since midnight
     uint16_t wateringDurationMs;
 } t_globalData;
 

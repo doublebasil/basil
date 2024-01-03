@@ -34,7 +34,7 @@
 
 /* --- OTHER DEFINITIONS --- */
 #define TERMINAL_NORMAL_COLOUR  ( 0xFD44 )
-#define TERMINAL_ERROR_COLOUR   ( 0xD8A7 )
+#define TERMINAL_ERROR_COLOUR   ( 0xF840 )
 // If the SD card could not be read or the NTP server could not be connected to,
 // the following settings will be used as defaults
 #define DEFAULT_WATERING_PERIOD_HOURS   ( 12 )
@@ -70,18 +70,18 @@ int main( void )
     oled_terminalWrite( "OLED initialised" );
     oled_terminalWrite( "CYW43 initialised" );
 
-    oled_terminalWrite( " _           _  __ " );
-    oled_terminalWrite( "|_) _. _ o| / \\(_  " );
-    oled_terminalWrite( "|_)(_|_> || \\_/__) " );
-    oled_terminalWrite( " " );
+    // oled_terminalWrite( " _           _  __ " );
+    // oled_terminalWrite( "|_) _. _ o| / \\(_  " );
+    // oled_terminalWrite( "|_)(_|_> || \\_/__) " );
+    // oled_terminalWrite( " " );
 
     // Flicker the built in LED to indicate the pico has booted
     for( int i = 0; i < 3; i++ )
     {
         cyw43_arch_gpio_put( CYW43_WL_GPIO_LED_PIN, 1 );
-        sleep_ms( 100 );
+        sleep_ms( 50 );
         cyw43_arch_gpio_put( CYW43_WL_GPIO_LED_PIN, 0 );
-        sleep_ms( 100 );
+        sleep_ms( 50 );
     }
 
     // Initialise the pump
@@ -100,8 +100,31 @@ int main( void )
     oled_terminalWrite( "Done!" );
 
     // Read the settings.txt file from the SD card
-    oled_terminalWrite( "Reading SD config" );
-    settings_readFromSDCard( &g_globalData );
+    oled_terminalWrite( "Read SDC settings" );
+    if( settings_readFromSDCard( &g_globalData ) != 0 )
+    {
+        oled_terminalWrite( "SETTINGS NOT READ" );
+        oled_terminalSetNewColour( TERMINAL_ERROR_COLOUR );
+        sleep_ms( 2000 );
+        oled_terminalSetNewColour( TERMINAL_NORMAL_COLOUR );
+    }
+    else // Show off by reading some of the SD card settings
+    {
+        snprintf( textBuffer, sizeof(textBuffer), "->SSID=%s", g_globalData.wifiSsid );
+        oled_terminalWrite( textBuffer );
+        uint8_t wateringTimes = 0U;
+        for( uint8_t index = 0; index < MAX_NUMBER_OF_WATERING_TIMES; index++ )
+        {
+            if( g_globalData.wateringTimes[index] != -1 )
+                ++wateringTimes;
+        }
+        snprintf( textBuffer, sizeof(textBuffer), "->Water %d times", wateringTimes );
+        oled_terminalWrite( textBuffer );
+        oled_terminalWrite( "  per day" );
+        snprintf( textBuffer, sizeof(textBuffer), "->Water for %d", g_globalData.wateringDurationMs );
+        oled_terminalWrite( textBuffer );
+        oled_terminalWrite( "  milliseconds" );
+    }
 
     // if( settings_readFromSDCard( &g_globalData ) == 0 )
     // {
@@ -115,8 +138,8 @@ int main( void )
     //     oled_terminalWrite( "Read failed" );
     // }
 
-    // Connect to WiFi
-    oled_terminalWrite( "Connecting to SSID" );
+    // // Connect to WiFi
+    // oled_terminalWrite( "Connecting to SSID" );
     // snprintf( textBuffer, sizeof(textBuffer), "\"%s\"", WIFI_SSID );
     // oled_terminalWrite( textBuffer );
 

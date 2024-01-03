@@ -17,6 +17,7 @@ typedef enum
 } t_sdCardReadCurrentSetting;
 
 int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting currentSetting, const char settingsBuffer[] );
+static inline bool m_charIsNumber( char c );
 
 int settings_readFromSDCard( t_globalData* globalDataPtr )
 {
@@ -198,36 +199,136 @@ int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting curre
     }
     else if( currentSetting == e_wateringTimes )
     {
-        uint8_t currentTimeIndex = 0U;
         // Should be in 4 digit military time, comma delimited
         // Convert 24 hour time into minutes since midnight 
-        
+
         // Find the end of the string
-        uint8_t bufferIndex;
+        int16_t bufferIndex;
         for( bufferIndex = 0; bufferIndex < CURRENT_SETTING_BUFFER_SIZE; bufferIndex++ )
         {
             if( settingsBuffer[bufferIndex] == 0 )
                 break;
         }
         // Now read the string backwards
-        --bufferIndex;
-        while( bufferIndex >= 0 )
-        {
-            // YOU WERE HERE, ABOUT TO READ THE WATERING TIMES BACKWARDS
-
-            --bufferIndex;
-        }
+        uint8_t wateringTimesIndex = 0U;
+        int32_t wateringTimes[MAX_NUMBER_OF_WATERING_TIMES];
+        // Initialise all values of wateringTimes with -1
+        for( uint8_t index = 0U; index < MAX_NUMBER_OF_WATERING_TIMES; index++ )
+            wateringTimes[index] = -1;
         
-        while( currentTimeIndex < MAX_NUMBER_OF_WATERING_TIMES )
+        bool hasFoundValue = false;
+        --bufferIndex; // Move index back onto a value
+        while( bufferIndex >= 3 )
         {
-            ++currentTimeIndex;
-            globalDataPtr->wateringTimes[currentTimeIndex] = -1; // Unused watering time
+            // Check the next (in reverse) 4 characters are numbers
+            if( ( m_charIsNumber( settingsBuffer[bufferIndex] ) == false ) ||
+                ( m_charIsNumber( settingsBuffer[bufferIndex - 1] == false ) ) ||
+                ( m_charIsNumber( settingsBuffer[bufferIndex - 2] ==false ) ) ||
+                ( m_charIsNumber( settingsBuffer[bufferIndex - 3] ==false ) ) )
+            {
+                return 1; // A character was not a number
+            }
+
+            hasFoundValue = true;
+            wateringTimes[wateringTimesIndex] = ( ( (int32_t) settingsBuffer[bufferIndex] - 48) * 60 ) +
+                                                ( ( (int32_t) settingsBuffer[bufferIndex - 1] - 48 ) * 10 * 60 ) +
+                                                ( ( (int32_t) settingsBuffer[bufferIndex - 2] - 48 ) * 60 * 60 ) +
+                                                ( ( (int32_t) settingsBuffer[bufferIndex - 3] - 48 ) * 10 * 60 * 60 );
+
+            ++wateringTimesIndex;
+            if( wateringTimesIndex == MAX_NUMBER_OF_WATERING_TIMES )
+                break;
+
+            bufferIndex -= 5;
+        }
+
+        if( hasFoundValue == false )
+        {
+            // No watering times
+            return 1;
+        }
+
+        // Now move values from wateringTimes into globalDataPtr->wateringTimes, in ascendinging order
+        int32_t currentMinimum;
+        uint8_t minimumValueIndex;
+        wateringTimesIndex = 0U;
+        for( uint8_t loop = 0U; loop < MAX_NUMBER_OF_WATERING_TIMES; loop++ )
+        {
+            currentMinimum = -1;
+
+            for( uint8_t index = 0U; index < MAX_NUMBER_OF_WATERING_TIMES; index++ )
+            {
+                if( wateringTimes[index] >= 0 )
+                {
+                    if( ( currentMinimum == -1 ) || ( wateringTimes[index] < currentMinimum ) )
+                    {
+                        currentMinimum = wateringTimes[index];
+                        minimumValueIndex = index;
+                    }
+                }
+            }
+
+            if( currentMinimum == -1 )
+                break;
+
+            globalDataPtr->wateringTimes[wateringTimesIndex] = currentMinimum;
+            wateringTimes[minimumValueIndex] = -1;
+            ++wateringTimesIndex;
+        }
+        // Fill the rest of the values with -1
+        while( wateringTimesIndex < MAX_NUMBER_OF_WATERING_TIMES )
+        {
+            globalDataPtr->wateringTimes[wateringTimesIndex] = -1;
+            ++wateringTimesIndex;
         }
     }
     else if( currentSetting == e_wateringDuration )
     {
+        printf("Here\n");
+
+        // Find the end of the string
+        uint8_t bufferIndex = 0U;
+        while( settingsBuffer[bufferIndex] != 0 )
+        {
+            ++bufferIndex;
+            if( bufferIndex >= CURRENT_SETTING_BUFFER_SIZE )
+                return 1;
+        }
+        if( bufferIndex == 0 )
+            return 1;
         
+        printf("Here 2\n");
+
+        // Scroll back a character
+        --bufferIndex;
+        // Do stuff
+        uint16_t powerOfTen = 1U;
+        uint16_t runningCount = 0U;
+        while( true )
+        {
+            printf("%c, %d\n", settingsBuffer[bufferIndex], (uint8_t) m_charIsNumber( settingsBuffer[bufferIndex] ) == false );
+            if( m_charIsNumber( settingsBuffer[bufferIndex] ) == false )
+                return 1;
+
+            runningCount += powerOfTen * ( settingsBuffer[bufferIndex] - 48 );
+            powerOfTen *= 10;
+
+            if( bufferIndex == 0U )
+                break;
+            
+            --bufferIndex;
+        }
+        printf("Here 3\n");
+        globalDataPtr->wateringDurationMs = runningCount;
     }
 
     return 0;
+}
+
+static inline bool m_charIsNumber( char c )
+{
+    if( ( c >= '0' ) && ( c <= '9' ) )
+        return true;
+    else
+        return false;
 }

@@ -1,5 +1,6 @@
 WIFI SSID: "SSID_NOT_SET"
 WIFI PASSWORD: "PWRD_NOT_SET"
 
-WATERING TIMES: "0700,1800"
+Note: WATERING TIMES must be 4 digit military time, comma separated and with no spaces
+WATERING TIMES: "0700,1815"
 WATERING DURATION MS: "1000"

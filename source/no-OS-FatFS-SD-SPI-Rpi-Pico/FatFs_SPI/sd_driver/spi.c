@@ -38,6 +38,7 @@ static void in_spi_irq_handler(const uint DMA_IRQ_num, io_rw_32 *dma_hw_ints_p) 
                 assert(!sem_available(&spi_p->sem));
                 bool ok = sem_release(&spi_p->sem);
                 assert(ok);
+                (void) ok; // TF AVOID UNUSED VARIABLE ERROR
             }
         }
     }

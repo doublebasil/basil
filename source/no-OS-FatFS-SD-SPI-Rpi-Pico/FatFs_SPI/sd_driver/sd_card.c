@@ -909,6 +909,7 @@ static uint8_t sd_write_block(sd_card_t *pSD, const uint8_t *buffer,
     // write the data
     bool ret = sd_spi_transfer(pSD, buffer, NULL, length);
     myASSERT(ret);
+    (void) ret; // TF AVOID UNUSED VARIABLE ERROR
 
 #if SD_CRC_ENABLED
     if (crc_on) {

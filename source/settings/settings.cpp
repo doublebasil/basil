@@ -1,9 +1,19 @@
+/* TODO: Make the reading and writing more extensible, so that instead of using custom
+ * for loops for each function, you could have m_readCommaSeparatedIntegers or m_readInteger
+ * 
+ * TODO: Make the error codes more useful, maybe by adding an enum. Add printf to every
+ * error return for debugging
+ */
+
 #include "settings.hpp"
 
 #include "stdio.h"
+#include <string.h>
 
 #define SD_CARD_READ_BUFFER_SIZE    ( 100 )
 #define CURRENT_SETTING_BUFFER_SIZE ( 50 )
+
+#define SD_CARD_WRITE_BUFFER_SIZE   ( 100 )
 
 typedef enum
 {
@@ -25,7 +35,7 @@ int settings_readFromSDCard( t_globalData* globalDataPtr )
     FATFS fs;
     FIL fil;
     char buf[SD_CARD_READ_BUFFER_SIZE];
-    char filename[] = "settings.txt";
+    const char filename[] = "settings.txt";
 
     // Create a buffer which will store the text within quote marks
     char currentSettingBuffer[CURRENT_SETTING_BUFFER_SIZE];
@@ -41,7 +51,10 @@ int settings_readFromSDCard( t_globalData* globalDataPtr )
     // Open the settings file
     fr = f_open( &fil, filename, FA_READ );
     if( fr != FR_OK )
+    {
+        f_unmount( "0:" );
         return 2;
+    }
     
     /* This function should read the following:
      *      WIFI SSID
@@ -143,7 +156,126 @@ int settings_readFromSDCard( t_globalData* globalDataPtr )
     return 0;
 }
 
-// static int settings_writeToSDCard(); // TODO
+int settings_writeToSDCard( t_globalData* globalDataPtr )
+{
+    // Don't write the settings if reading the SD card failed
+    if( globalDataPtr->settingsReadOk == false )
+        return 100;
+
+    FRESULT fr;
+    FATFS fs;
+    FIL fil;
+    const char filename[] = "settings.txt";
+
+    char textBuffer[SD_CARD_WRITE_BUFFER_SIZE];
+    // Create a temporary text buffer
+    char tempTextBuffer[SD_CARD_WRITE_BUFFER_SIZE];
+
+    // Mount the SD card
+    fr = f_mount( &fs, "0:", 1 );
+    if( fr != FR_OK )
+        return 1;
+
+    // Open the settings file
+    fr = f_open( &fil, filename, FA_WRITE | FA_CREATE_ALWAYS );
+    if( fr != FR_OK )
+    {   
+        f_unmount( "0:" );
+        return 2;
+    }
+    
+    // Note: f_printf returns the number of characters it wrote on sucess, or negative on fail
+    // Note: remember to put \r\n at the end of each line
+
+    snprintf( textBuffer, sizeof( textBuffer ), "WIFI SSID: \"%s\"\r\n", globalDataPtr->wifiSsid );
+    if( ( f_printf( &fil, textBuffer ) < 0 ) )
+        return 3;
+    
+    snprintf( textBuffer, sizeof( textBuffer ), "WIFI PASSWORD: \"%s\"\r\n\r\n", globalDataPtr->wifiPassword );
+    if( ( f_printf( &fil, textBuffer ) < 0 ) )
+        return 4;
+    
+    snprintf( textBuffer, sizeof( textBuffer ), "NOTE WATERING TIMES MUST BE 4 DIGIT MILIRARY TIME COMMA DELIMITED WITH NO SPACE\r\n" );
+    if( ( f_printf( &fil, textBuffer ) < 0 ) )
+        return 5;
+
+    // Turn the watering times from seconds from midnight to military time, and into a string
+    bool isTextBufferEmpty = true;
+    uint16_t militaryTime;
+    int32_t remainingTime;
+    uint8_t stringLength = 0U;
+    for( uint8_t i = 0U; i < MAX_NUMBER_OF_WATERING_TIMES; i++ )
+    {
+        if( globalDataPtr->wateringTimes[i] >= 0 )
+        {
+            // Convert time to military
+            militaryTime = 0U;
+            remainingTime = globalDataPtr->wateringTimes[i];
+            while( remainingTime >= ( 10LL * 60LL * 60LL ) ) // Tens of hours
+            {
+                remainingTime -= 10LL * 60LL * 60LL;
+                militaryTime += 1000;
+            }
+            while( remainingTime >= ( 60LL * 60LL ) ) // Hours
+            {
+                remainingTime -= 60LL * 60LL;
+                militaryTime += 100;
+            }
+            while( remainingTime >= ( 10LL * 60LL ) ) // Tens of minutes
+            {
+                remainingTime -= 10LL * 60LL;
+                militaryTime += 10;
+            }
+            while( remainingTime >= ( 60LL ) ) // Minutes
+            {
+                remainingTime -= 60LL;
+                militaryTime += 1;
+            }
+
+            if( isTextBufferEmpty == true )
+            {
+                snprintf( textBuffer, sizeof(textBuffer), "%04d", militaryTime );
+                isTextBufferEmpty = false;
+                stringLength += 4;
+            }
+            else
+            {
+                // Copy from textBuffer into the temporary buffer
+                strncpy( tempTextBuffer, textBuffer, SD_CARD_WRITE_BUFFER_SIZE );
+                // Format the temp buffer back into text buffer
+                snprintf( textBuffer, sizeof(textBuffer), "%s,%04d", tempTextBuffer, militaryTime );
+                stringLength += 5;
+            }
+            if( stringLength >= sizeof(textBuffer) )
+            {
+                break;
+            }
+        }
+        printf(textBuffer);
+        printf("\n");
+    }
+
+    strncpy( tempTextBuffer, textBuffer, SD_CARD_WRITE_BUFFER_SIZE );
+    snprintf( textBuffer, sizeof( textBuffer ), "WATERING TIMES: \"%s\"\r\n", tempTextBuffer );
+    if( ( f_printf( &fil, textBuffer ) < 0 ) )
+        return 6;
+
+    snprintf( textBuffer, sizeof( textBuffer ), "WATERING DURATION MS: \"%d\"\r\n", globalDataPtr->wateringDurationMs );
+    if( ( f_printf( &fil, textBuffer ) < 0 ) )
+        return 7;
+
+    fr = f_close( &fil );
+    if( fr != FR_OK )
+    {
+        f_unmount( "0:" );
+        return 8;
+    }
+
+    // Unmount the SD card
+    f_unmount( "0:" );
+
+    return 0;
+}
 
 int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting currentSetting, const char settingsBuffer[] )
 {
@@ -284,8 +416,6 @@ int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting curre
     }
     else if( currentSetting == e_wateringDuration )
     {
-        printf("Here\n");
-
         // Find the end of the string
         uint8_t bufferIndex = 0U;
         while( settingsBuffer[bufferIndex] != 0 )
@@ -296,8 +426,6 @@ int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting curre
         }
         if( bufferIndex == 0 )
             return 1;
-        
-        printf("Here 2\n");
 
         // Scroll back a character
         --bufferIndex;
@@ -306,7 +434,6 @@ int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting curre
         uint16_t runningCount = 0U;
         while( true )
         {
-            printf("%c, %d\n", settingsBuffer[bufferIndex], (uint8_t) m_charIsNumber( settingsBuffer[bufferIndex] ) == false );
             if( m_charIsNumber( settingsBuffer[bufferIndex] ) == false )
                 return 1;
 
@@ -318,7 +445,7 @@ int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting curre
             
             --bufferIndex;
         }
-        printf("Here 3\n");
+
         globalDataPtr->wateringDurationMs = runningCount;
     }
 

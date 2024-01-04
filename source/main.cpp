@@ -88,28 +88,43 @@ int main( void )
     oled_terminalWrite( "Initialising pump" );
     // ! The pump init function will need rewriting if other ADC is used !
     pump_init( PUMP_CONTROL_PIN, PUMP_ADC_PIN );
-    oled_terminalWrite( "Done!" );
+    oled_terminalWrite( "Done" );
+    oled_terminalWrite( "" );
 
     // Enable station mode for the WiFi driver
+    oled_terminalWrite( "Enable STA mode" );
     cyw43_arch_enable_sta_mode();
-    oled_terminalWrite( "Enabled STA mode" );
+    oled_terminalWrite( "Done" );
+    oled_terminalWrite( "" );
 
     // SD card driver init
     oled_terminalWrite( "Initialising SDC" );
     m_sdCardInit();
-    oled_terminalWrite( "Done!" );
+    oled_terminalWrite( "Done" );
+    oled_terminalWrite( "" );
 
     // Read the settings.txt file from the SD card
     oled_terminalWrite( "Read SDC settings" );
     if( settings_readFromSDCard( &g_globalData ) != 0 )
     {
+        g_globalData.settingsReadOk = false;
         oled_terminalWrite( "SETTINGS NOT READ" );
         oled_terminalSetNewColour( TERMINAL_ERROR_COLOUR );
         sleep_ms( 2000 );
         oled_terminalSetNewColour( TERMINAL_NORMAL_COLOUR );
+
+        // // Need to write default values to the global settings
+        // snprintf( g_globalData.wifiSsid, WIFI_SSID_MAX_LEN, "UNKNOWN" );
+        // snprintf( g_globalData.wifiPassword, WIFI_SSID_MAX_LEN, "UNKNOWN" );
+        // snprintf( g_globalData.wifiPassword, WIFI_SSID_MAX_LEN, "UNKNOWN" );
+        // for( uint8_t i = 0U; i < WIFI_SSID_MAX_LEN; i++ )
+        // {
+        //     g_globalData.wateringTimes
+        // }
     }
     else // Show off by reading some of the SD card settings
     {
+        g_globalData.settingsReadOk = true;
         snprintf( textBuffer, sizeof(textBuffer), "->SSID=%s", g_globalData.wifiSsid );
         oled_terminalWrite( textBuffer );
         uint8_t wateringTimes = 0U;
@@ -124,6 +139,28 @@ int main( void )
         snprintf( textBuffer, sizeof(textBuffer), "->Water for %d", g_globalData.wateringDurationMs );
         oled_terminalWrite( textBuffer );
         oled_terminalWrite( "  milliseconds" );
+    }
+
+    // TEST
+
+    g_globalData.wateringTimes[0] = 49500; // 1345
+    g_globalData.wateringTimes[1] = 50400; // 1400
+    g_globalData.wateringTimes[2] = 58800; // 1620
+    g_globalData.wateringTimes[3] = -1;
+    g_globalData.wateringTimes[4] = -1;
+
+    g_globalData.wateringDurationMs = 1234;
+
+    snprintf( g_globalData.wifiSsid, WIFI_SSID_MAX_LEN, "THIS IS A THING" );
+
+    int a = settings_writeToSDCard( &g_globalData );
+    if( a != 0 )
+    {
+        printf( "SD card write failed with code %d\n", a );
+    }
+    else
+    {
+        printf( "SD card write successful\n" );
     }
 
     // if( settings_readFromSDCard( &g_globalData ) == 0 )

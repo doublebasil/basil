@@ -10,6 +10,6 @@
 
 int settings_readFromSDCard( t_globalData* globalDataPtr );
 
-// int settings_writeToSDCard(); // TODO
+int settings_writeToSDCard( t_globalData* globalDataPtr );
 
 #endif

@@ -30,7 +30,7 @@
 #define PUMP_CONTROL_PIN        ( 21 )
 #define PUMP_ADC_PIN            ( 26 )
 
-// SD CARD DEFINITIONS IN source/no-OS-FatFS-SD-SPI-Rpi-Pico/FatFs_SPI/sd_driver/hw_config.c
+// SD CARD SETTINGS DEFINED IN source/no-OS-FatFS-SD-SPI-Rpi-Pico/FatFs_SPI/sd_driver/hw_config.c
 
 /* --- OTHER DEFINITIONS --- */
 #define TERMINAL_NORMAL_COLOUR  ( 0xFD44 )
@@ -44,10 +44,12 @@
 t_globalData g_globalData;
 
 /* --- MODULE SCOPE FUNCTION PROTOTYPE --- */
-static inline void m_rebootBoard();
-static inline void m_cyw43Init();
-static inline void m_oledInit();
-static inline void m_sdCardInit();
+static void m_mainLoopNoSdCard( void );
+
+static inline void m_rebootBoard( void );
+static inline void m_cyw43Init( void );
+static inline void m_oledInit( void );
+static inline void m_sdCardInit( void );
 
 // CHANGE THE POWER SAVING MODE WHEN LAUNCHING THE WEB SERVER
 
@@ -108,60 +110,38 @@ int main( void )
     if( settings_readFromSDCard( &g_globalData ) != 0 )
     {
         g_globalData.settingsReadOk = false;
-        oled_terminalWrite( "SETTINGS NOT READ" );
         oled_terminalSetNewColour( TERMINAL_ERROR_COLOUR );
-        sleep_ms( 2000 );
-        oled_terminalSetNewColour( TERMINAL_NORMAL_COLOUR );
-
-        // // Need to write default values to the global settings
-        // snprintf( g_globalData.wifiSsid, WIFI_SSID_MAX_LEN, "UNKNOWN" );
-        // snprintf( g_globalData.wifiPassword, WIFI_SSID_MAX_LEN, "UNKNOWN" );
-        // snprintf( g_globalData.wifiPassword, WIFI_SSID_MAX_LEN, "UNKNOWN" );
-        // for( uint8_t i = 0U; i < WIFI_SSID_MAX_LEN; i++ )
-        // {
-        //     g_globalData.wateringTimes
-        // }
-    }
-    else // Show off by reading some of the SD card settings
-    {
-        g_globalData.settingsReadOk = true;
-        snprintf( textBuffer, sizeof(textBuffer), "->SSID=%s", g_globalData.wifiSsid );
+        oled_terminalWrite( "ERROR Cannot read" );
+        oled_terminalWrite( "      settings.txt" );
+        sleep_ms( 1000 );
+        oled_terminalWrite( "Will use default" );
+        oled_terminalWrite( "settings:" );
+        oled_terminalWrite( "Watering every" );
+        snprintf( textBuffer, sizeof(textBuffer), "%d hours for %d", DEFAULT_WATERING_PERIOD_HOURS, DEFAULT_WATERING_LENGTH_MS );
         oled_terminalWrite( textBuffer );
-        uint8_t wateringTimes = 0U;
-        for( uint8_t index = 0; index < MAX_NUMBER_OF_WATERING_TIMES; index++ )
-        {
-            if( g_globalData.wateringTimes[index] != -1 )
-                ++wateringTimes;
-        }
-        snprintf( textBuffer, sizeof(textBuffer), "->Water %d times", wateringTimes );
-        oled_terminalWrite( textBuffer );
-        oled_terminalWrite( "  per day" );
-        snprintf( textBuffer, sizeof(textBuffer), "->Water for %d", g_globalData.wateringDurationMs );
-        oled_terminalWrite( textBuffer );
-        oled_terminalWrite( "  milliseconds" );
+        oled_terminalWrite( "milliseconds" );
+        
+        m_mainLoopNoSdCard(); // This function will never exit
     }
-
-    // TEST
-
-    g_globalData.wateringTimes[0] = 49500; // 1345
-    g_globalData.wateringTimes[1] = 50400; // 1400
-    g_globalData.wateringTimes[2] = 58800; // 1620
-    g_globalData.wateringTimes[3] = -1;
-    g_globalData.wateringTimes[4] = -1;
-
-    g_globalData.wateringDurationMs = 1234;
-
-    snprintf( g_globalData.wifiSsid, WIFI_SSID_MAX_LEN, "THIS IS A THING" );
-
-    int a = settings_writeToSDCard( &g_globalData );
-    if( a != 0 )
+    
+    // Show off by reading some of the SD card settings
+    g_globalData.settingsReadOk = true;
+    snprintf( textBuffer, sizeof(textBuffer), "->SSID=%s", g_globalData.wifiSsid );
+    oled_terminalWrite( textBuffer );
+    uint8_t wateringTimes = 0U;
+    for( uint8_t index = 0; index < MAX_NUMBER_OF_WATERING_TIMES; index++ )
     {
-        printf( "SD card write failed with code %d\n", a );
+        if( g_globalData.wateringTimes[index] != -1 )
+            ++wateringTimes;
     }
-    else
-    {
-        printf( "SD card write successful\n" );
-    }
+    snprintf( textBuffer, sizeof(textBuffer), "->Water %d times", wateringTimes );
+    oled_terminalWrite( textBuffer );
+    oled_terminalWrite( "  per day" );
+    snprintf( textBuffer, sizeof(textBuffer), "->Water for %d", g_globalData.wateringDurationMs );
+    oled_terminalWrite( textBuffer );
+    oled_terminalWrite( "  milliseconds" );
+
+
 
     // if( settings_readFromSDCard( &g_globalData ) == 0 )
     // {
@@ -190,14 +170,23 @@ int main( void )
     for( ;; ) {}
 }
 
-static inline void m_rebootBoard()
+static void m_mainLoopNoSdCard( void )
+{
+    // uint64_t screenTimeout;
+    while( true ) // true will be true for a long time
+    {
+        sleep_ms( 1000 );
+    }
+}
+
+static inline void m_rebootBoard( void )
 {
     // Reboot the board by enabling a 1ms watchdog, and then not feeding it
     watchdog_enable( 1, false );
     for( ;; ) {}
 }
 
-static inline void m_cyw43Init()
+static inline void m_cyw43Init( void )
 {
     if( cyw43_arch_init() )
     {
@@ -209,7 +198,7 @@ static inline void m_cyw43Init()
     }
 }
 
-static inline void m_oledInit()
+static inline void m_oledInit( void )
 {
     if( oled_init( OLED_DATA_IN_PIN, OLED_CLOCK_PIN, OLED_CHIP_SELECT_PIN, 
         OLED_DATA_COMMAND_PIN, OLED_RESET_PIN, OLED_SPI_OUTPUT, OLED_BAUD_RATE_HZ, 
@@ -224,7 +213,7 @@ static inline void m_oledInit()
     }
 }
 
-static inline void m_sdCardInit()
+static inline void m_sdCardInit( void )
 {
     if( !sd_init_driver() )
     {

@@ -18,4 +18,15 @@
  */
 void pump_init( uint8_t pumpControlPin, uint8_t pumpAdcPin );
 
+/*
+ * Function: pump_runMs
+ * --------------------
+ * Run the pump for the specified number of milliseconds, or until a stall is detected
+ *
+ * runMs: Time for the pump to run in milliseconds
+ *
+ * returns: void
+ */
+void pump_runMs( uint16_t runMs );
+
 #endif // define MOTOR_HPP

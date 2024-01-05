@@ -16,17 +16,17 @@ void pump_init( uint8_t pumpControlPin, uint8_t pumpAdcPin )
     adc_init();
     if( pumpAdcPin == 26 )
     {
-        adc_gpio_init( 26 );
+        adc_gpio_init( pumpAdcPin );
         adc_select_input( 0 );
     }
     else if( pumpAdcPin == 27 )
     {
-        adc_gpio_init( 27 );
+        adc_gpio_init( pumpAdcPin );
         adc_select_input( 1 );
     }
     else if( pumpAdcPin == 28 )
     {
-        adc_gpio_init( 28 );
+        adc_gpio_init( pumpAdcPin );
         adc_select_input( 2 );
     }
     else
@@ -38,4 +38,9 @@ void pump_init( uint8_t pumpControlPin, uint8_t pumpAdcPin )
             sleep_ms( 2000 );
         }
     }
+}
+
+void pump_runMs( uint16_t runMs )
+{
+
 }

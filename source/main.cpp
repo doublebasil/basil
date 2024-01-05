@@ -30,11 +30,14 @@
 #define PUMP_CONTROL_PIN        ( 21 )
 #define PUMP_ADC_PIN            ( 26 )
 
+#define INPUT_BUTTON_PIN        ( 28 )
+
 // SD CARD SETTINGS DEFINED IN source/no-OS-FatFS-SD-SPI-Rpi-Pico/FatFs_SPI/sd_driver/hw_config.c
 
 /* --- OTHER DEFINITIONS --- */
-#define TERMINAL_NORMAL_COLOUR  ( 0xFD44 )
-#define TERMINAL_ERROR_COLOUR   ( 0xF840 )
+// #define TERMINAL_NORMAL_COLOUR  ( 0xFD44 ) // Retro terminal yellow
+#define TERMINAL_NORMAL_COLOUR  ( 0x2444 )
+#define TERMINAL_ERROR_COLOUR   ( 0xE005 )
 // If the SD card could not be read or the NTP server could not be connected to,
 // the following settings will be used as defaults
 #define DEFAULT_WATERING_PERIOD_HOURS   ( 12 )
@@ -44,9 +47,14 @@
 t_globalData g_globalData;
 
 /* --- MODULE SCOPE FUNCTION PROTOTYPE --- */
+/* MAIN LOOPS */
 static void m_mainLoopNoSdCard( void );
-
+/* TASKS */
+static void m_addTask( absolute_time_t taskScheduleTime, void (*callback)( void ) );
+static void m_taskClearDisplay( void );
+/* REBOOT */
 static inline void m_rebootBoard( void );
+/* INIT FUNCTIONS */
 static inline void m_cyw43Init( void );
 static inline void m_oledInit( void );
 static inline void m_sdCardInit( void );
@@ -69,13 +77,14 @@ int main( void )
 
     // Create a terminal for the display  "MAX TERMINAL WIDTH"
     oled_terminalInit( 12, TERMINAL_NORMAL_COLOUR );
-    oled_terminalWrite( "OLED initialised" );
-    oled_terminalWrite( "CYW43 initialised" );
 
-    // oled_terminalWrite( " _           _  __ " );
-    // oled_terminalWrite( "|_) _. _ o| / \\(_  " );
-    // oled_terminalWrite( "|_)(_|_> || \\_/__) " );
-    // oled_terminalWrite( " " );
+    for( uint8_t i = 0U; i < 3; i++ )
+        oled_terminalWrite( "" );
+    
+    oled_terminalWrite( " _           _  __ " );
+    oled_terminalWrite( "|_) _. _ o| / \\(_  " );
+    oled_terminalWrite( "|_)(_|_> || \\_/__) " );
+    oled_terminalWrite( " " );
 
     // Flicker the built in LED to indicate the pico has booted
     for( int i = 0; i < 3; i++ )
@@ -86,27 +95,29 @@ int main( void )
         sleep_ms( 50 );
     }
 
+    oled_terminalWrite( "OLED initialised" );
+    oled_terminalWrite( "CYW43 initialised" );
+
     // Initialise the pump
     oled_terminalWrite( "Initialising pump" );
     // ! The pump init function will need rewriting if other ADC is used !
     pump_init( PUMP_CONTROL_PIN, PUMP_ADC_PIN );
-    oled_terminalWrite( "Done" );
-    oled_terminalWrite( "" );
+
+    // Intialise input button
+    oled_terminalWrite( "Init input button" );
+    gpio_init( INPUT_BUTTON_PIN );
+    gpio_set_dir( INPUT_BUTTON_PIN, GPIO_IN );
 
     // Enable station mode for the WiFi driver
     oled_terminalWrite( "Enable STA mode" );
     cyw43_arch_enable_sta_mode();
-    oled_terminalWrite( "Done" );
-    oled_terminalWrite( "" );
 
     // SD card driver init
-    oled_terminalWrite( "Initialising SDC" );
+    oled_terminalWrite( "Init SDC driver" );
     m_sdCardInit();
-    oled_terminalWrite( "Done" );
-    oled_terminalWrite( "" );
 
     // Read the settings.txt file from the SD card
-    oled_terminalWrite( "Read SDC settings" );
+    oled_terminalWrite( "Load SDC settings" );
     if( settings_readFromSDCard( &g_globalData ) != 0 )
     {
         g_globalData.settingsReadOk = false;
@@ -120,26 +131,28 @@ int main( void )
         snprintf( textBuffer, sizeof(textBuffer), "%d hours for %d", DEFAULT_WATERING_PERIOD_HOURS, DEFAULT_WATERING_LENGTH_MS );
         oled_terminalWrite( textBuffer );
         oled_terminalWrite( "milliseconds" );
+        oled_terminalWrite( "" );
         
         m_mainLoopNoSdCard(); // This function will never exit
     }
     
-    // Show off by reading some of the SD card settings
     g_globalData.settingsReadOk = true;
-    snprintf( textBuffer, sizeof(textBuffer), "->SSID=%s", g_globalData.wifiSsid );
-    oled_terminalWrite( textBuffer );
-    uint8_t wateringTimes = 0U;
-    for( uint8_t index = 0; index < MAX_NUMBER_OF_WATERING_TIMES; index++ )
-    {
-        if( g_globalData.wateringTimes[index] != -1 )
-            ++wateringTimes;
-    }
-    snprintf( textBuffer, sizeof(textBuffer), "->Water %d times", wateringTimes );
-    oled_terminalWrite( textBuffer );
-    oled_terminalWrite( "  per day" );
-    snprintf( textBuffer, sizeof(textBuffer), "->Water for %d", g_globalData.wateringDurationMs );
-    oled_terminalWrite( textBuffer );
-    oled_terminalWrite( "  milliseconds" );
+
+    // // Show off by reading some of the SD card settings
+    // snprintf( textBuffer, sizeof(textBuffer), "->SSID=%s", g_globalData.wifiSsid );
+    // oled_terminalWrite( textBuffer );
+    // uint8_t wateringTimes = 0U;
+    // for( uint8_t index = 0; index < MAX_NUMBER_OF_WATERING_TIMES; index++ )
+    // {
+    //     if( g_globalData.wateringTimes[index] != -1 )
+    //         ++wateringTimes;
+    // }
+    // snprintf( textBuffer, sizeof(textBuffer), "->Water %d times", wateringTimes );
+    // oled_terminalWrite( textBuffer );
+    // oled_terminalWrite( "  per day" );
+    // snprintf( textBuffer, sizeof(textBuffer), "->Water for %d", g_globalData.wateringDurationMs );
+    // oled_terminalWrite( textBuffer );
+    // oled_terminalWrite( "  milliseconds" );
 
 
 
@@ -165,27 +178,86 @@ int main( void )
 
     
 
-    printf( "Running\n" );
+    printf( "END\n" );
 
     for( ;; ) {}
 }
 
+/* --- MODULE SCOPE FUNCTIONS --- */
+/* MAIN LOOPS */
 static void m_mainLoopNoSdCard( void )
 {
-    // uint64_t screenTimeout;
-    while( true ) // true will be true for a long time
+    // The tasks will currently be empty
+    m_addTask( make_timeout_time_ms( 10000 ), &m_taskClearDisplay );
+
+    while( true ) // Infinite loop
     {
         sleep_ms( 1000 );
     }
 }
+/* TASKS */
+static void m_addTask( absolute_time_t taskScheduleTime, void (*callback)( void ) )
+{
+    // Find an empty task
+    bool taskFound = false;
+    for( uint8_t i = 0U; i < MAX_NUMBER_OF_TASKS; i++ )
+    {
+        if( g_globalData.tasks[i].taskActive == false )
+        {
+            // Add it to this task
+            g_globalData.tasks[i].taskActive = true;
+            g_globalData.tasks[i].taskScheduleTime = taskScheduleTime;
+            g_globalData.tasks[i].callback = callback;
 
+            taskFound = true;
+            break;
+        }
+    }
+
+    if( taskFound == false )
+    {
+        // Bad news
+        cyw43_arch_gpio_put( CYW43_WL_GPIO_LED_PIN, 1 );
+        for( ;; )
+        {
+            printf( "Ran out of tasks\n" );
+            sleep_ms( 2000 );
+        }
+    }
+}
+
+static void m_taskClearDisplay( void )
+{
+    switch( g_globalData.displayState )
+    {
+        case e_displayState_terminal:
+        {
+
+        }
+        break;
+        case e_displayState_image:
+        {
+
+        }
+        break;
+        case e_displayState_clear:
+        default:
+        {
+            // Do nothing
+        }
+    }
+
+    g_globalData.displayState = e_displayState_clear;
+}
+
+/* REBOOT */
 static inline void m_rebootBoard( void )
 {
     // Reboot the board by enabling a 1ms watchdog, and then not feeding it
     watchdog_enable( 1, false );
     for( ;; ) {}
 }
-
+/* INIT FUNCTIONS */
 static inline void m_cyw43Init( void )
 {
     if( cyw43_arch_init() )

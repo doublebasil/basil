@@ -30,7 +30,7 @@
 #define PUMP_CONTROL_PIN        ( 21 )
 #define PUMP_ADC_PIN            ( 26 )
 
-#define INPUT_BUTTON_PIN        ( 28 )
+#define INPUT_BUTTON_PIN        ( 2 )
 
 // SD CARD SETTINGS DEFINED IN source/no-OS-FatFS-SD-SPI-Rpi-Pico/FatFs_SPI/sd_driver/hw_config.c
 
@@ -49,9 +49,10 @@ t_globalData g_globalData;
 /* --- MODULE SCOPE FUNCTION PROTOTYPE --- */
 /* MAIN LOOPS */
 static void m_mainLoopNoSdCard( void );
-/* TASKS */
-static void m_addTask( absolute_time_t taskScheduleTime, void (*callback)( void ) );
-static void m_taskClearDisplay( void );
+/* ALARM CALLBACKS */
+static int64_t m_noSdCardWateringCb( alarm_id_t id, void *userData );
+/* BUTTON INTERRUPT */
+static void m_inputButtonIrqCb( uint gpio, uint32_t events );
 /* REBOOT */
 static inline void m_rebootBoard( void );
 /* INIT FUNCTIONS */
@@ -63,6 +64,7 @@ static inline void m_sdCardInit( void );
 
 int main( void )
 {
+    // Initialisation
     char textBuffer[19];
 
     // Initialise the debug output
@@ -77,6 +79,7 @@ int main( void )
 
     // Create a terminal for the display  "MAX TERMINAL WIDTH"
     oled_terminalInit( 12, TERMINAL_NORMAL_COLOUR );
+    g_globalData.displayState = e_displayState_terminal;
 
     for( uint8_t i = 0U; i < 3; i++ )
         oled_terminalWrite( "" );
@@ -101,7 +104,7 @@ int main( void )
     // Initialise the pump
     oled_terminalWrite( "Initialising pump" );
     // ! The pump init function will need rewriting if other ADC is used !
-    pump_init( PUMP_CONTROL_PIN, PUMP_ADC_PIN );
+    pump_init( &g_globalData, PUMP_CONTROL_PIN, PUMP_ADC_PIN );
 
     // Intialise input button
     oled_terminalWrite( "Init input button" );
@@ -121,6 +124,7 @@ int main( void )
     if( settings_readFromSDCard( &g_globalData ) != 0 )
     {
         g_globalData.settingsReadOk = false;
+        g_globalData.wateringDurationMs = DEFAULT_WATERING_LENGTH_MS;
         oled_terminalSetNewColour( TERMINAL_ERROR_COLOUR );
         oled_terminalWrite( "ERROR Cannot read" );
         oled_terminalWrite( "      settings.txt" );
@@ -132,7 +136,7 @@ int main( void )
         oled_terminalWrite( textBuffer );
         oled_terminalWrite( "milliseconds" );
         oled_terminalWrite( "" );
-        
+
         m_mainLoopNoSdCard(); // This function will never exit
     }
     
@@ -187,67 +191,64 @@ int main( void )
 /* MAIN LOOPS */
 static void m_mainLoopNoSdCard( void )
 {
-    // The tasks will currently be empty
-    m_addTask( make_timeout_time_ms( 10000 ), &m_taskClearDisplay );
+    // Set an alarm for watering the plant
+    g_globalData.alarmIdWatering = add_alarm_in_ms( ( DEFAULT_WATERING_PERIOD_HOURS * 60UL * 60UL * 1000UL ) / 2UL, 
+                                                    m_noSdCardWateringCb, NULL, false );
+
+    // Set a interrupt on the input button pin
+    gpio_set_irq_enabled_with_callback( INPUT_BUTTON_PIN,
+                                        GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL,
+                                        true,
+                                        &m_inputButtonIrqCb );
 
     while( true ) // Infinite loop
     {
-        sleep_ms( 1000 );
+        // Sleep_ms should automatically put the board into low power mode where possible
+        sleep_ms( 0xFFFFFFFFU ); // Maximum sleep
     }
 }
-/* TASKS */
-static void m_addTask( absolute_time_t taskScheduleTime, void (*callback)( void ) )
+/* ALARM CALLBACKS */
+static int64_t m_noSdCardWateringCb( alarm_id_t id, void *userData )
 {
-    // Find an empty task
-    bool taskFound = false;
-    for( uint8_t i = 0U; i < MAX_NUMBER_OF_TASKS; i++ )
-    {
-        if( g_globalData.tasks[i].taskActive == false )
-        {
-            // Add it to this task
-            g_globalData.tasks[i].taskActive = true;
-            g_globalData.tasks[i].taskScheduleTime = taskScheduleTime;
-            g_globalData.tasks[i].callback = callback;
-
-            taskFound = true;
-            break;
-        }
-    }
-
-    if( taskFound == false )
-    {
-        // Bad news
-        cyw43_arch_gpio_put( CYW43_WL_GPIO_LED_PIN, 1 );
-        for( ;; )
-        {
-            printf( "Ran out of tasks\n" );
-            sleep_ms( 2000 );
-        }
-    }
+    // Run the pump, timing is based on global data struct
+    pump_run();
+    // Cancel the current watering timer
+    cancel_alarm( g_globalData.alarmIdWatering );
+    // Set a new alarm
+    g_globalData.alarmIdWatering = add_alarm_in_ms( ( DEFAULT_WATERING_PERIOD_HOURS * 60UL * 60UL * 1000UL ), 
+                                                    m_noSdCardWateringCb, NULL, false );
+    
+    return 0;
 }
 
-static void m_taskClearDisplay( void )
+// static void m_taskClearDisplay( void )
+// {
+//     switch( g_globalData.displayState )
+//     {
+//         case e_displayState_terminal:
+//         {
+
+//         }
+//         break;
+//         case e_displayState_image:
+//         {
+
+//         }
+//         break;
+//         case e_displayState_clear:
+//         default:
+//         {
+//             // Do nothing
+//         }
+//     }
+
+//     g_globalData.displayState = e_displayState_clear;
+// }
+
+/* BUTTON INTERRUPT */
+static void m_inputButtonIrqCb( uint gpio, uint32_t events )
 {
-    switch( g_globalData.displayState )
-    {
-        case e_displayState_terminal:
-        {
-
-        }
-        break;
-        case e_displayState_image:
-        {
-
-        }
-        break;
-        case e_displayState_clear:
-        default:
-        {
-            // Do nothing
-        }
-    }
-
-    g_globalData.displayState = e_displayState_clear;
+    // TODO
 }
 
 /* REBOOT */

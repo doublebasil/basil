@@ -26,15 +26,15 @@ typedef enum
 
 typedef struct
 {
-    // SD card settings
+    /* SD CARD SETTINGS */
     bool settingsReadOk;
     char wifiSsid[WIFI_SSID_MAX_LEN];
     char wifiPassword[WIFI_PASSWORD_MAX_LEN];
-    int32_t wateringTimes[MAX_NUMBER_OF_WATERING_TIMES]; // Seconds since midnight
+    int32_t wateringTimes[MAX_NUMBER_OF_WATERING_TIMES]; // Seconds since midnight, only used if RTC is set via NTP server
     uint16_t wateringDurationMs;
-    // Tasks
-    t_task tasks[MAX_NUMBER_OF_TASKS];
-    // Display current status
+    /* ALARMS */
+    alarm_id_t alarmIdWatering;
+    /* DISPLAY STATUS */
     t_displayState displayState;
 
     // Pump current status

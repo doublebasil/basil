@@ -110,6 +110,17 @@ int oled_loadingBarInit( uint8_t x1, uint8_t x2, uint8_t y1, uint8_t y2,
     uint16_t colour );
 
 /*
+ * Function: oled_loadingBarIsInit
+ * --------------------
+ * Returns true if the loading bar is initialised
+ *
+ * parameters: none
+ *
+ * returns: true if loading bar is initialised
+ */
+bool oled_loadingBarIsInit( void );
+
+/*
  * Function: oled_loadingBarDisplay
  * --------------------
  * Set the colour of a specific pixel
@@ -151,6 +162,17 @@ void oled_loadingBarDeinit();
  */
 int oled_loadingCircleInit( uint8_t originX, uint8_t originY, uint8_t outerRadius, 
     uint8_t innerRadius, uint16_t colour );
+
+/*
+ * Function: oled_loadingCircleIsInit
+ * --------------------
+ * Returns true if the loading circle is initialised
+ *
+ * parameters: none
+ *
+ * returns: true if the loading circle is initialised
+ */
+bool oled_loadingCircleIsInit( void );
 
 /*
  * Function: oled_loadingCircleDisplay
@@ -231,6 +253,17 @@ void oled_writeText( uint8_t xStartPos, uint8_t yStartPos, const char text[],
  *          3 if font size is not valid
  */
 int oled_terminalInit( uint8_t fontSize, uint16_t colour );
+
+/*
+ * Function: oled_terminalIsInit
+ * --------------------
+ * Returns true if the terminal is initialised
+ *
+ * parameters: none
+ *
+ * returns: true if the terminal is initialised
+ */
+bool oled_terminalIsInit( void );
 
 /*
  * Function: oled_terminalGetWidthInCharacters

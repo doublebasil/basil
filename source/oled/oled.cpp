@@ -433,6 +433,14 @@ int oled_loadingBarInit( uint8_t x1, uint8_t x2, uint8_t y1, uint8_t y2,
     return 0;
 }
 
+bool oled_loadingBarIsInit( void )
+{
+    if( m_loadingBarState == e_loadingBarStateHorizontal )
+        return true;
+    else
+        return false;
+}
+
 void oled_loadingBarDisplay( uint8_t progress ) 
 {
     // Ensure the loading bar has been initialised
@@ -515,6 +523,9 @@ void oled_loadingBarDisplay( uint8_t progress )
 
 void oled_loadingBarDeinit( void )
 {
+    if( m_loadingBarState != e_loadingBarStateHorizontal )
+        return;
+
     if( m_loadingBarBitmapPtr1 != NULL )
     {
         free( m_loadingBarBitmapPtr1 );
@@ -579,6 +590,14 @@ int oled_loadingCircleInit( uint8_t originX, uint8_t originY, uint8_t outerRadiu
     m_loadingBarBitmapNext = e_loadingBarBitmap1Next;
 
     return 0;
+}
+
+bool oled_loadingCircleIsInit( void )
+{
+    if( m_loadingBarState == e_loadingBarStateCircle )
+        return true;
+    else
+        return false;
 }
 
 void oled_loadingCircleDisplay( uint8_t progress )
@@ -726,6 +745,9 @@ void oled_loadingCircleDisplay( uint8_t progress )
 
 void oled_loadingCircleDeinit( void )
 {
+    if( m_loadingBarState != e_loadingBarStateCircle )
+        return;
+
     if( m_loadingBarBitmapPtr1 != NULL )
     {
         free( m_loadingBarBitmapPtr1 );
@@ -961,14 +983,28 @@ int oled_terminalInit( uint8_t fontSize, uint16_t colour )
     return 0; // Success
 }
 
+bool oled_terminalIsInit( void )
+{
+    if( m_terminalBitmapState == e_terminalUninitialised )
+        return false;
+    else
+        return true;
+}
+
 uint8_t oled_terminalGetWidthInCharacters( void )
 {
-    return m_displayWidth / ( m_terminalFontTablePtr->Width + OLED_WRITE_TEXT_CHARACTER_GAP );
+    if( m_terminalBitmapState == e_terminalUninitialised )
+        return 0;
+    else
+        return m_displayWidth / ( m_terminalFontTablePtr->Width + OLED_WRITE_TEXT_CHARACTER_GAP );
 }
 
 uint8_t oled_terminalGetHeightInCharacters( void )
 {
-    return m_displayHeight / m_terminalFontSize;
+    if( m_terminalBitmapState == e_terminalUninitialised )
+        return 0;
+    else
+        return m_displayHeight / ( m_terminalFontTablePtr->Width + OLED_WRITE_TEXT_CHARACTER_GAP );
 }
 
 void oled_terminalWrite( const char text[] )
@@ -1044,6 +1080,9 @@ void oled_terminalSetNewColour( uint16_t colour )
 
 void oled_terminalDeinit( void ) 
 {
+    if( m_terminalBitmapState == e_terminalUninitialised )
+        return;
+
     // Free the memory and set the bitmap pointers to NULL. Never free a NULL pointer
     if( m_terminalBitmapPtr1 != NULL )
     {

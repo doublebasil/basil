@@ -57,9 +57,6 @@ void pump_run( void )
     absolute_time_t pumpEndTime;
     uint16_t adcValue;
 
-    // Disable interrupts temporarily to ensure an interrupt does not leave the pump running
-    uint32_t interruptState = save_and_disable_interrupts();
-
     // Calculate end times
     settleEndTime = make_timeout_time_ms( PUMP_SETTLE_TIME );
     pumpEndTime = make_timeout_time_ms( m_globalDataPtr->wateringDurationMs );
@@ -85,6 +82,4 @@ void pump_run( void )
     // Stop the pump
     gpio_put( m_pumpControlPin, 0 );
 
-    // Re-enable interrupts
-    restore_interrupts( interruptState );
 }

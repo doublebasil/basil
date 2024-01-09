@@ -53,9 +53,11 @@ typedef struct
     char wifiPassword[WIFI_PASSWORD_MAX_LEN];
     int32_t wateringTimes[MAX_NUMBER_OF_WATERING_TIMES]; // Seconds since midnight, only used if RTC is set via NTP server
     uint16_t wateringDurationMs;
+    /* HARDWARE INFO */
+    uint8_t displayWidth;
+    uint8_t displayHeight;
     /* STATES */
     t_binday bindayState;
-    // t_displayState displayState;
     t_tankState tankState;
     t_systemState systemState;
     /* TIME STAMPS */

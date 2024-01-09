@@ -37,7 +37,8 @@
 /* --- OTHER DEFINITIONS --- */
 // #define TERMINAL_NORMAL_COLOUR  ( 0xFD44 ) // Retro terminal yellow
 #define TERMINAL_NORMAL_COLOUR  ( 0x2444 )
-#define TERMINAL_ERROR_COLOUR   ( 0xE005 )
+// #define TERMINAL_ERROR_COLOUR   ( 0xE005 )
+#define TERMINAL_NO_SDC_COLOUR  ( 0xFD44 )
 #define TERMINAL_FONT_SIZE      ( 12 )
 // If the SD card could not be read or the NTP server could not be connected to,
 // the following settings will be used as defaults
@@ -72,6 +73,8 @@ int main( void )
     // Initialisation
     g_globalData.systemState = e_systemState_init;
     g_globalData.tankState = e_tankState_unknown;
+    g_globalData.displayWidth = OLED_DISPLAY_WIDTH;
+    g_globalData.displayHeight = OLED_DISPLAY_HEIGHT;
 
     // Initialise the debug output
     stdio_init_all();
@@ -131,7 +134,7 @@ int main( void )
     {
         g_globalData.settingsReadOk = false;
         g_globalData.wateringDurationMs = DEFAULT_WATERING_LENGTH_MS;
-        oled_terminalSetNewColour( TERMINAL_ERROR_COLOUR );
+        oled_terminalSetNewColour( TERMINAL_NO_SDC_COLOUR );
         oled_terminalWrite( "ERROR Cannot read" );
         oled_terminalWrite( "      settings.txt" );
         sleep_ms( 1000 );
@@ -213,7 +216,7 @@ static void m_mainLoopNoSdCard( void )
             // Display info
             m_clearScreen();
             g_globalData.systemState = e_systemState_info;
-            oled_terminalInit( TERMINAL_FONT_SIZE, TERMINAL_NORMAL_COLOUR );
+            oled_terminalInit( TERMINAL_FONT_SIZE, TERMINAL_NO_SDC_COLOUR );
             oled_terminalWrite( "NO SD CARD MODE" );
             if( g_globalData.tankState == e_tankState_dry )
             {

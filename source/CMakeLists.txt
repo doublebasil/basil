@@ -2,6 +2,7 @@ add_executable(${PROJECT_NAME}
     main.cpp
     ntp/ntp.cpp
     oled/oled.cpp
+    oled/intcos.cpp
     pump/pump.cpp
     settings/settings.cpp
     QR-Code-generator/qrcodegen.c

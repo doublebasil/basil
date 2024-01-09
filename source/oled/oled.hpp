@@ -2,13 +2,13 @@
 #define OLED_HPP
 
 /* Settings for this module ------------------------------------------------ */
-#define OLED_INCLUDE_TEST_FUNCTION
+// #define OLED_INCLUDE_TEST_FUNCTION
 #define OLED_INCLUDE_LOADING_BAR_HORIZONTAL
 #define OLED_INCLUDE_LOADING_CIRCLE
-#define OLED_INCLUDE_FONT8                      // Uses ~760 bytes
+// #define OLED_INCLUDE_FONT8                      // Uses ~760 bytes
 #define OLED_INCLUDE_FONT12                     // Uses ~1144 bytes
-#define OLED_INCLUDE_FONT16                     // Uses ~3044 bytes
-#define OLED_INCLUDE_FONT20                     // Uses ~3804 bytes
+// #define OLED_INCLUDE_FONT16                     // Uses ~3044 bytes
+// #define OLED_INCLUDE_FONT20                     // Uses ~3804 bytes
 #define OLED_INCLUDE_FONT24                     // Uses ~6844 bytes
 #define OLED_WRITE_TEXT_CHARACTER_GAP     ( 0 ) // Number of pixels between characters
 #define OLED_INCLUDE_SD_IMAGES
@@ -78,6 +78,20 @@ void oled_setPixel( uint8_t x, uint8_t y, uint16_t colour );
  * returns: void
  */
 void oled_fill( uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint16_t colour );
+
+/*
+ * Function: oled_drawLineBetweenPoints
+ * --------------------
+ * Draw a line between two cartesian points using Bresenham's line algorithm
+ *
+ * x1, y1, x2, y2: Coordinates for line
+ * colour: Colour of line in RGB565
+ * thickness: 0 for thin line, 2 is fairly thick
+ *
+ * returns: void
+ */
+void oled_drawLineBetweenPoints( uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, 
+    uint16_t colour, uint8_t thickness );
 
 #ifdef OLED_INCLUDE_TEST_FUNCTION
 /*

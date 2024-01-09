@@ -18,6 +18,10 @@
 #include "qrcodegen.h"
 #endif
 
+#ifdef OLED_INCLUDE_LOADING_CIRCLE
+#include "intcos.hpp"
+#endif // defined OLED_INCLUDE_LOADING_CIRCLE
+
 /* --- PREPROCESSOR -----------------------------------------------------------*/
 #ifdef OLED_INCLUDE_FONT8
 #include "font8.h"
@@ -80,30 +84,6 @@ static uint8_t m_loadingCircleCenterY;
 static uint8_t m_loadingCircleBitmapWidth;
 static uint8_t m_loadingCircleOuterRadius;
 static uint8_t m_loadingCircleInnerRadius;
-static const int16_t cosLookupTable[91] = {
-	1000, 1000, 999, 999, 
-	998, 996, 995, 993, 
-	990, 988, 985, 982, 
-	978, 974, 970, 966, 
-	961, 956, 951, 946, 
-	940, 934, 927, 921, 
-	914, 906, 899, 891, 
-	883, 875, 866, 857, 
-	848, 839, 829, 819, 
-	809, 799, 788, 777, 
-	766, 755, 743, 731, 
-	719, 707, 695, 682, 
-	669, 656, 643, 629, 
-	616, 602, 588, 574, 
-	559, 545, 530, 515, 
-	500, 485, 469, 454, 
-	438, 423, 407, 391, 
-	375, 358, 342, 326, 
-	309, 292, 276, 259, 
-	242, 225, 208, 191, 
-	174, 156, 139, 122, 
-	105, 87, 70, 52, 
-	35, 17, 0};
 #endif // defined OLED_INCLUDE_LOADING_CIRCLE
 
 /* --- FONT RELATED MODULE SCOPE VARIABLES --- */
@@ -133,12 +113,6 @@ static inline void m_chipSelect( void );
 static inline void m_chipDeselect( void );
 static inline void m_writeReg( uint8_t reg );
 static inline void m_writeData( uint8_t data );
-
-/* --- LOADING BAR RELATED MODULE SCOPE FUNCTIONS --- */
-#ifdef OLED_INCLUDE_LOADING_CIRCLE
-static inline int16_t m_intsin( int16_t angle );
-static inline int16_t m_intcos( int16_t angle );
-#endif // defined OLED_INCLUDE_LOADING_CIRCLE
 
 /* --- FONT RELATED MODULE SCOPE FUNCTIONS --- */
 #if defined OLED_INCLUDE_FONT8 || defined OLED_INCLUDE_FONT12 || defined OLED_INCLUDE_FONT16 || defined OLED_INCLUDE_FONT20 || defined OLED_INCLUDE_FONT24
@@ -314,6 +288,72 @@ void oled_fill( uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint16_t colour 
         {
             oled_setPixel( x, y, colour );
         }
+    }
+}
+
+void oled_drawLineBetweenPoints( uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, 
+    uint16_t colour, uint8_t thickness )
+{
+    /* To avoid the use of floats/doubles, int32_t will be used and each coordinate
+     * will be multipied by a constant */
+    const int32_t scale = 1000;
+    int32_t xScaled = (int32_t) x1 * scale;
+    int32_t yScaled = (int32_t) y1 * scale;
+    int32_t dx = (int32_t) x2 - (int32_t) x1;
+    int32_t dy = (int32_t) y2 - (int32_t) y1;
+    uint8_t x;
+    uint8_t y;
+
+    uint16_t stepsLimit;
+    uint16_t dxAbs;
+    uint16_t dyAbs;
+    
+    if( dx < 0 )
+        dxAbs = (uint16_t) ( -1 * dx );
+    else
+        dxAbs = (uint16_t) dx;
+
+    if( dy < 0 )
+        dyAbs = (uint16_t) ( -1 * dy );
+    else
+        dyAbs = (uint16_t) dy;
+    
+    if( dxAbs > dyAbs )
+        stepsLimit = dxAbs;
+    else
+        stepsLimit = dyAbs;
+
+    int32_t xIncrementScaled = ( dx * scale ) / stepsLimit;
+    int32_t yIncrementScaled = ( dy * scale ) / stepsLimit;
+
+    for( uint16_t step = 0U; step < stepsLimit; step++ )
+    {
+        x = (uint8_t) ( xScaled / scale );
+        y = (uint8_t) ( yScaled / scale );
+
+        if( thickness > 0 )
+        {
+            for( int16_t xThicken = x - thickness; xThicken < x + thickness + 1; xThicken++ )
+            {
+                if( xThicken < 0 )
+                    continue;
+                
+                for( int16_t yThicken = y - thickness; yThicken < y + thickness + 1; yThicken++ )
+                {
+                    if( yThicken < 0 )
+                        continue;
+
+                    oled_setPixel( (uint8_t) xThicken, (uint8_t) yThicken, colour );
+                }
+            }
+        }
+        else // don't thicken line
+        {
+            oled_setPixel( x, y, colour );
+        }
+
+        xScaled += xIncrementScaled;
+        yScaled += yIncrementScaled;
     }
 }
 
@@ -1653,14 +1693,14 @@ static inline void m_loadingCircleProcessQuadrant( uint8_t* bitmapPtr, uint8_t x
                     angle += 2;
                 }
 
-                const int32_t cosTheta = m_intcos( (int16_t) angle );
+                const int32_t cosTheta = intcos( (int16_t) angle );
                 if( cosTheta == 0U )
                 {
                     // No 0 division errors
                     return;
                 }
 
-                const int32_t gradientScaled = ( m_intsin( (int16_t) angle ) * gradientScaleFactor ) / cosTheta; // scale up the gradient, so that we can use integers
+                const int32_t gradientScaled = ( intsin( (int16_t) angle ) * gradientScaleFactor ) / cosTheta; // scale up the gradient, so that we can use integers
                 const int32_t c = ( (int32_t) m_loadingCircleOuterRadius - 1 ) - ( ( gradientScaled * ( (int32_t) m_loadingCircleOuterRadius - 1 ) ) / gradientScaleFactor );
 
                 triangleWidth = m_loadingCircleOuterRadius;
@@ -1691,14 +1731,14 @@ static inline void m_loadingCircleProcessQuadrant( uint8_t* bitmapPtr, uint8_t x
             else // Quadrant 0
             {
                 // Angle for the y=mx+c line is 90-angle
-                const int32_t cosTheta = m_intcos( (int16_t) ( 90U - angle ) );
+                const int32_t cosTheta = intcos( (int16_t) ( 90U - angle ) );
                 if( cosTheta == 0 )
                 {
                     // No div0 errors please
                     return;
                 }
 
-                const int32_t gradientScaled = -1 * ( m_intsin( (int16_t) ( 90U - angle ) ) * gradientScaleFactor ) / cosTheta; // scale up the gradient, so that we can use integers
+                const int32_t gradientScaled = -1 * ( intsin( (int16_t) ( 90U - angle ) ) * gradientScaleFactor ) / cosTheta; // scale up the gradient, so that we can use integers
                 const int32_t c = ( (int32_t) m_loadingCircleOuterRadius - 1 ) - ( ( gradientScaled * ( (int32_t) m_loadingCircleOuterRadius - 1 ) ) / gradientScaleFactor );
 
                 triangleWidth = 0U;
@@ -1736,14 +1776,14 @@ static inline void m_loadingCircleProcessQuadrant( uint8_t* bitmapPtr, uint8_t x
                 }
 
                 // Angle for the y=mx+c line is 90-angle
-                const int32_t cosTheta = m_intcos( (int16_t) ( 90U - angle ) );
+                const int32_t cosTheta = intcos( (int16_t) ( 90U - angle ) );
                 if( cosTheta == 0 )
                 {
                     // No 0 division errors
                     return;
                 }
 
-                const int32_t gradientScaled = ( m_intsin( (int16_t) ( 90U - angle ) ) * gradientScaleFactor * -1 ) / cosTheta; // scale up the gradient, so that we can use integers
+                const int32_t gradientScaled = ( intsin( (int16_t) ( 90U - angle ) ) * gradientScaleFactor * -1 ) / cosTheta; // scale up the gradient, so that we can use integers
                 const int32_t c = ( (int32_t) m_loadingCircleOuterRadius - 1 ) - ( ( gradientScaled * ( (int32_t) m_loadingCircleOuterRadius - 1 ) ) / gradientScaleFactor );
 
                 triangleWidth = m_loadingCircleOuterRadius;
@@ -1769,14 +1809,14 @@ static inline void m_loadingCircleProcessQuadrant( uint8_t* bitmapPtr, uint8_t x
             }
             else // Quadrant 1
             {   
-                const int32_t cosTheta = m_intcos( (int16_t) angle );
+                const int32_t cosTheta = intcos( (int16_t) angle );
                 if( cosTheta == 0 )
                 {
                     // No 0 division errors
                     return;
                 }
 
-                const int32_t gradientScaled = ( m_intsin( (int16_t) angle ) * gradientScaleFactor ) / cosTheta; // scale up the gradient, so that we can use integers
+                const int32_t gradientScaled = ( intsin( (int16_t) angle ) * gradientScaleFactor ) / cosTheta; // scale up the gradient, so that we can use integers
                 const int32_t c = ( (int32_t) m_loadingCircleOuterRadius - 1 ) - ( ( gradientScaled * ( (int32_t) m_loadingCircleOuterRadius - 1 ) ) / gradientScaleFactor );
 
                 triangleWidth = 0U;
@@ -1986,46 +2026,3 @@ static inline void m_writeData( uint8_t data )
     else
         spi_write_blocking( spi1, &data, 1 );
 }
-
-#ifdef OLED_INCLUDE_LOADING_CIRCLE
-/*
- * Function: m_intsin
- * --------------------
- * Calculate sin using m_intcos
- *
- * angle: Angle in degrees
- *
- * returns: round( 1000 * cos( angle ) )
- */
-static inline int16_t m_intsin( int16_t angle )
-{
-    return m_intcos( angle - 90 );
-}
-
-/*
- * Function: m_intcos
- * --------------------
- * Calculate cos using a lookup table and integer math. Uses no floats/doubles
- *
- * angle: Angle in degrees
- *
- * returns: round( 1000 * sin( angle ) )
- */
-static inline int16_t m_intcos( int16_t angle )
-{
-    // Take abs of angle
-    int16_t newAngle = ( angle < 0 ) ? ( -1 * angle ) : angle;
-    // Move the angle to within 0 and 360
-    newAngle = newAngle - ( ( newAngle / 360 ) * 360 );
-
-    int8_t quadrant = newAngle / 90;
-    if( quadrant == 0 ) // ( newAngle >= 0 ) and ( newAngle < 90 )
-        return cosLookupTable[newAngle];
-    else if( quadrant == 1 ) // ( newAngle >= 90 ) and ( newAngle < 180 )
-        return -1 * cosLookupTable[180 - newAngle];
-    else if( quadrant == 2 ) // ( newAngle >= 180 ) and ( newAngle < 270 )
-        return -1 * cosLookupTable[newAngle - 180];
-    else // quadrant = 3, ( newAngle >= 270 ) and ( newAngle < 360 )
-        return cosLookupTable[360 - newAngle];
-}
-#endif /* OLED_INCLUDE_LOADING_CIRCLE */

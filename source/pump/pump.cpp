@@ -12,15 +12,17 @@
 // the pump may run for this amount of ms before it is detected as being dry
 #define PUMP_SETTLE_TIME_MS ( 500U )
 
-#define GAUGE_INNER_RADIUS      ( 40 )
-#define GAUGE_OUTER_RADIUS      ( 50 )
+#define GAUGE_INNER_RADIUS      ( 45 )
+#define GAUGE_OUTER_RADIUS      ( 55 )
 #define GAUGE_REDLINE_THICKNESS ( 1 )
 #define GAUGE_REDLINE_LENGTH    ( 60 )
-#define GAUGE_COLOUR            ( 0xFFFF )
-#define GAUGE_REDLINE_COLOUR    ( 0xFF00 )
+#define GAUGE_COLOUR            ( 0xBE9C )
+#define GAUGE_REDLINE_COLOUR    ( 0b1110000000000000 )
 
-static uint8_t m_pumpControlPin;
 static t_globalData* m_globalDataPtr;
+static uint8_t m_pumpControlPin;
+static uint8_t m_adcInput;
+static bool m_isInitialised = false;
 
 static void m_drawRedline( uint16_t redlinePosition );
 
@@ -40,17 +42,17 @@ void pump_init( t_globalData* globalDataPtr, uint8_t pumpControlPin, uint8_t pum
     if( pumpAdcPin == 26 )
     {
         adc_gpio_init( pumpAdcPin );
-        adc_select_input( 0 );
+        m_adcInput = 0;
     }
     else if( pumpAdcPin == 27 )
     {
         adc_gpio_init( pumpAdcPin );
-        adc_select_input( 1 );
+        m_adcInput = 1;
     }
     else if( pumpAdcPin == 28 )
     {
         adc_gpio_init( pumpAdcPin );
-        adc_select_input( 2 );
+        m_adcInput = 2;
     }
     else
     {
@@ -61,18 +63,27 @@ void pump_init( t_globalData* globalDataPtr, uint8_t pumpControlPin, uint8_t pum
             sleep_ms( 2000 );
         }
     }
+
+    m_isInitialised = true;
 }
 
 void pump_run( void )
 {
-    printf("pump_run\n");
+    if( m_isInitialised == false )
+        return;
+
+    adc_select_input( m_adcInput );
 
     absolute_time_t settleEndTime;
     absolute_time_t pumpEndTime;
-    uint16_t adcValue;
+    uint16_t adcValue = adc_read();
+    bool emergencyStop = false;
 
     // Draw the redline
     m_drawRedline( ADC_THRESHOLD );
+    // Init the loading circle, to be used as a motor gauge
+    oled_loadingCircleInit( m_globalDataPtr->displayWidth / 2, m_globalDataPtr->displayHeight / 2,
+                            GAUGE_OUTER_RADIUS, GAUGE_INNER_RADIUS, GAUGE_COLOUR );
 
     // Calculate end times
     settleEndTime = make_timeout_time_ms( PUMP_SETTLE_TIME_MS );
@@ -83,23 +94,35 @@ void pump_run( void )
     // Wait until the end of the settling time
     while( absolute_time_diff_us( get_absolute_time(), settleEndTime ) > 0 )
     {
-        sleep_ms( 100 );
+        adcValue = adc_read();
+        // Update the gauge
+        oled_loadingCircleDisplay( (uint8_t) ( ( (uint32_t) adcValue * 252UL ) / 0x0FFFUL ) );
     }
     // Wait until the pump needs to be turned off, or the pump is detected as being dry
     while( absolute_time_diff_us( get_absolute_time(), pumpEndTime ) > 0 )
     {
         // Read the ADC
         adcValue = adc_read();
-        
+        // Check if we need to emergency stop the motor
         if( adcValue > ADC_THRESHOLD )
         {
+            emergencyStop = true;
             break;
         }
+        // Update the gauge
+        oled_loadingCircleDisplay( (uint8_t) ( ( (uint32_t) adcValue * 252UL ) / 0x0FFFUL ) );
     }
     // Stop the pump
     gpio_put( m_pumpControlPin, 0 );
 
-    printf("pump exit\n");
+    // Update the loading gauge
+    oled_loadingCircleDisplay( (uint8_t) ( ( (uint32_t) adcValue * 252UL ) / 0x0FFFUL ) );
+    sleep_ms( 50 );
+    adcValue = adc_read();
+    oled_loadingCircleDisplay( (uint8_t) ( ( (uint32_t) adcValue * 252UL ) / 0x0FFFUL ) );
+
+    // Deinit the loading circle
+    oled_loadingCircleDeinit();
 }
 
 // Draw the redline for the loading circle which shows where the dry detection cutoff is

@@ -44,18 +44,14 @@
 /* --- OTHER DEFINITIONS --- */
 // #define TERMINAL_NORMAL_COLOUR  ( 0xFD44 ) // Retro terminal yellow
 #define TERMINAL_NORMAL_COLOUR          ( 0x2444 ) // Forest green
-// #define TERMINAL_ERROR_COLOUR   ( 0xE005 )
-// #define TERMINAL_NO_SDC_COLOUR  ( 0xFD44 )
-// #define TERMINAL_ERROR_COLOUR           ( 0x9B23 ) // Golden brown
-// #define TERMINAL_ERROR_COLOUR           ( 0x6205 )
-// #define TERMINAL_ERROR_COLOUR           ( 0x05BD ) // Cyan (Subtractive Primary)
 #define TERMINAL_ERROR_COLOUR           ( 0b0000000000011111 ) // Blue
 #define TERMINAL_FONT_SIZE              ( 12 )
 // If the SD card could not be read or the NTP server could not be connected to,
 // the following settings will be used as defaults
 #define DEFAULT_WATERING_PERIOD_HOURS   ( 12 )
 #define DEFAULT_WATERING_LENGTH_MS      ( 1000 )
-// Screen related timings
+/* TIMING RELATED MAGIC NUMBERS */
+#define MAIN_LOOP_SLEEP_DURATION_MS     ( 50 )
 #define SCREEN_TIMEOUT_MS               ( 10000 )
 #define BUTTON_LONG_PRESS_TIME_MS       ( 3000LL )
 
@@ -64,8 +60,10 @@ t_globalData g_globalData;
 static char m_textBuffer[19];
 
 /* --- MODULE SCOPE FUNCTION PROTOTYPE --- */
-/* NO SD CARD LOOP */
-static void m_mainLoopNoSdCard( void );
+/* MAIN LOOP FUNCTIONS */
+static inline void m_loopInit( void );
+static inline void m_loopIdle( void );
+static inline void m_loopInfo( void );
 /* REBOOT */
 static inline void m_rebootBoard( void );
 /* INIT FUNCTIONS */
@@ -74,6 +72,7 @@ static inline void m_oledInit( void );
 static inline void m_sdCardInit( void );
 /* OTHER FUNCTIONS */
 static void m_basilOsScreen( void );
+static void inline m_setSystemState( t_systemState state );
 static void m_clearScreen( void );
 static void m_timeToString( char* charArrayStart, uint8_t charArraySize, absolute_time_t timestamp );
 static void m_terminalLoadingString( char* charArrayStart, uint8_t charArraySize, uint8_t percentageComplete );
@@ -87,6 +86,7 @@ int main( void )
     g_globalData.tankState = e_tankState_unknown;
     g_globalData.displayWidth = OLED_DISPLAY_WIDTH;
     g_globalData.displayHeight = OLED_DISPLAY_HEIGHT;
+    g_globalData.buttonPin = INPUT_BUTTON_PIN;
 
     // Initialise the debug output
     stdio_init_all();
@@ -114,8 +114,8 @@ int main( void )
 
     // Intialise input button
     oled_terminalWrite( "Init input button" );
-    gpio_init( INPUT_BUTTON_PIN );
-    gpio_set_dir( INPUT_BUTTON_PIN, GPIO_IN );
+    gpio_init( g_globalData.buttonPin );
+    gpio_set_dir( g_globalData.buttonPin, GPIO_IN );
 
     // Enable station mode for the WiFi driver
     oled_terminalWrite( "Enable STA mode" );
@@ -128,32 +128,42 @@ int main( void )
     // Read the settings.txt file from the SD card
     oled_terminalWrite( "Load SDC settings" );
     if( settings_readFromSDCard( &g_globalData ) != 0 )
-    // if( true )
     {
+        // Failed to read SD card, update the relevant global data
         g_globalData.settingsReadOk = false;
         g_globalData.wateringDurationMs = DEFAULT_WATERING_LENGTH_MS;
+        g_globalData.isLandfillBinday = false;
+        g_globalData.isLandfillBinday = false;
+
+        // Display message to inform user
         oled_terminalClear();
-        oled_writeText( 0, 0, "ERROR", 24, TERMINAL_ERROR_COLOUR, false );
+        sleep_ms( 500 );
+        oled_terminalWrite( "Error:" );
+        oled_terminalWrite( "Couldn't read from" );
+        oled_terminalWrite( "SD card" );
+        oled_terminalWrite( " " );
+        oled_terminalWrite( "Continuing with" );
+        oled_terminalWrite( "default settings" );
+        oled_terminalWrite( " " );
+        snprintf( m_textBuffer, sizeof( m_textBuffer ) , "Water for %d ms", g_globalData.wateringDurationMs );
+        oled_terminalWrite( m_textBuffer );
+        snprintf( m_textBuffer, sizeof( m_textBuffer ) , "Every %d hours", DEFAULT_WATERING_PERIOD_HOURS );
+        oled_terminalWrite( m_textBuffer );
 
-        // // oled_terminalSetNewColour( TERMINAL_ERROR_COLOUR );
-        // oled_terminalWrite( "ERROR Cannot read" );
-        // oled_terminalWrite( "      settings.txt" );
-        // sleep_ms( 1000 );
-        // oled_terminalWrite( "Will use default" );
-        // oled_terminalWrite( "settings:" );
-        // oled_terminalWrite( "Watering every" );
-        // snprintf( m_textBuffer, sizeof(m_textBuffer), "%d hours for %d", DEFAULT_WATERING_PERIOD_HOURS, DEFAULT_WATERING_LENGTH_MS );
-        // oled_terminalWrite( m_textBuffer );
-        // oled_terminalWrite( "milliseconds" );
-        // oled_terminalWrite( "" );
-
-        m_mainLoopNoSdCard(); // This function will never exit
+        // Update global data timestamps before main loop
+        g_globalData.nextWateringTs = make_timeout_time_ms( ( DEFAULT_WATERING_PERIOD_HOURS * 60UL * 60UL * 1000UL ) / 2UL );
+        g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
     }
-    
-    g_globalData.settingsReadOk = true;
-    oled_terminalWrite( "Done" );
+    else
+    {
+        g_globalData.settingsReadOk = true;
+        oled_terminalDeinit();
+        oled_clear();
+        // Do some fancy shtuff with icons n that
+        for( ;; ) sleep_ms( 1000 );
+    }
 
-    oled_sdWriteImage( "notification_img.txt", 20, 20 );
+    // oled_sdWriteImage( "notification_img.txt", 20, 20 );
 
     /*
     // // Show off by reading some of the SD card settings
@@ -194,206 +204,266 @@ int main( void )
     // cyw43_arch_wifi_connect_timeout_ms( WIFI_SSID,
     //     WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000 );
     */
-    
-    printf( "END\n" );
 
-    for( ;; ) {}
+    // Main program loop
+    while( true )
+    {
+        switch( g_globalData.systemState )
+        {
+            case e_systemState_init:
+            {
+                m_loopInit();
+            }
+            case e_systemState_idle:
+            {
+                m_loopIdle();
+            }
+            break;
+            case e_systemState_info:
+            {
+                m_loopInfo();
+            }
+            break;
+        }
+        sleep_ms( MAIN_LOOP_SLEEP_DURATION_MS );
+    }
+
+    // If the loop somehow exits, reboot the board
+    m_rebootBoard();
 }
 
 /* --- MODULE SCOPE FUNCTIONS --- */
 
-/* NO SD CARD LOOP */
-static void m_mainLoopNoSdCard( void )
+/* MAIN LOOP FUNCTIONS */
+static inline void m_loopInit( void )
 {
-    g_globalData.nextWateringTs = make_timeout_time_ms( ( DEFAULT_WATERING_PERIOD_HOURS * 60UL * 60UL * 1000UL ) / 2UL );
-    g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
-
-    while( true ) // Infinite loop
+    // If the button is pressed, go to info state
+    if( gpio_get( g_globalData.buttonPin ) )
     {
-        /* Need to perform checks in order of importance */
-
-        // If button is pressed and not yet in info mode, print loads of stuff
-        if( ( gpio_get( INPUT_BUTTON_PIN ) == true ) &&
-            ( g_globalData.systemState != e_systemState_info ) && 
-            ( g_globalData.systemState != e_systemState_startWatering ) )
-        {
-            // Display info
-            m_clearScreen();
-            g_globalData.systemState = e_systemState_info;
-            oled_terminalInit( TERMINAL_FONT_SIZE, TERMINAL_ERROR_COLOUR );
-            oled_terminalWrite( "NO SD CARD MODE" );
-            if( g_globalData.tankState == e_tankState_dry )
-            {
-                oled_terminalWrite( "TANK IS DRY!" );
-            }
-            if( g_globalData.tankState == e_tankState_ok )
-            {
-                oled_terminalWrite( "Tank contains water" );
-            }
-            else
-            {
-                oled_terminalWrite( "Tank status unknown" );
-            }
-            oled_terminalWrite( "Next watering in:" );
-            m_timeToString( &m_textBuffer[0], sizeof( m_textBuffer ), g_globalData.nextWateringTs );
-            oled_terminalWrite( m_textBuffer );
-            oled_terminalWrite( "Hold to water now" );
-            oled_terminalSetLine( 6 );
-            m_terminalLoadingString( &m_textBuffer[0], sizeof( m_textBuffer ), 0 );
-            oled_terminalWrite( m_textBuffer );
-            // Set screen timeout
-            g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
-        }
-        // If button pressed but already in info mode, allow for a long press
-        if( ( gpio_get( INPUT_BUTTON_PIN ) == true ) &&
-            ( g_globalData.systemState == e_systemState_info ) && 
-            ( g_globalData.systemState != e_systemState_startWatering ) )
-        {
-            absolute_time_t buttonPressStartTime = get_absolute_time();
-            bool longPress = false;
-            int64_t msSinceButtonPressed;
-            uint8_t progress;
-            while( gpio_get( INPUT_BUTTON_PIN ) )
-            {
-                // Update the next watering time
-                oled_terminalSetLine( 3 );
-                m_timeToString( &m_textBuffer[0], sizeof( m_textBuffer ), g_globalData.nextWateringTs );
-                oled_terminalWrite( m_textBuffer );
-                // Update the long press loading bar thing
-                msSinceButtonPressed = absolute_time_diff_us( buttonPressStartTime, get_absolute_time() ) / 1000LL;
-                progress = (uint8_t) ( ( msSinceButtonPressed * 100LL ) / BUTTON_LONG_PRESS_TIME_MS );
-                oled_terminalSetLine( 6 );
-                m_terminalLoadingString( &m_textBuffer[0], sizeof( m_textBuffer ), progress );
-                oled_terminalWrite( m_textBuffer );
-                if( progress >= 100 )
-                {
-                    longPress = true;
-                    g_globalData.systemState = e_systemState_startWatering;
-                    break;
-                }
-                sleep_ms( 20 );
-            }
-            if( longPress == false )
-            {
-                // Set screen timeout
-                g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
-            }
-        }
-        // If button not pressed but still in info mode, update the watering time
-        // and check if the screen should have timed out
-        else if( g_globalData.systemState == e_systemState_info )
-        {
-            // Check for timeout
-            if( absolute_time_diff_us( get_absolute_time(), g_globalData.screenTimeoutTs ) < 0 )
-            {
-                // Clear screen due to timeout
-                m_clearScreen();
-                g_globalData.systemState = e_systemState_idle;
-            }
-            else
-            {
-                // Update screen as it has not timed out
-                oled_terminalSetLine( 3 );
-                m_timeToString( &m_textBuffer[0], sizeof( m_textBuffer ), g_globalData.nextWateringTs );
-                oled_terminalWrite( m_textBuffer );
-                oled_terminalSetLine( 6 );
-                m_terminalLoadingString( &m_textBuffer[0], sizeof( m_textBuffer ), 0 );
-                oled_terminalWrite( m_textBuffer );
-            }
-        }
-        // If the system is still on the init screen, check if it should time out
-        else if( g_globalData.systemState == e_systemState_init )
-        {
-            if( absolute_time_diff_us( get_absolute_time(), g_globalData.screenTimeoutTs ) < 0 )
-            {
-                g_globalData.systemState = e_systemState_idle;
-                m_clearScreen();
-            }
-        }
-        // Check if it's time to water
-        else if( ( g_globalData.systemState == e_systemState_startWatering ) || 
-                 ( ( absolute_time_diff_us( get_absolute_time(), g_globalData.nextWateringTs ) / 1000LL ) < 0LL ) )
-        {
-            // Clear screen ready for the pump running screen
-            m_clearScreen();
-            g_globalData.systemState = e_systemState_startWatering;
-            // Run the pump
-            pump_run();
-            // Set screen state and screen timeout
-            g_globalData.systemState = e_systemState_postWatering;
-            g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
-            // Set the next watering time
-            g_globalData.nextWateringTs = make_timeout_time_ms( DEFAULT_WATERING_PERIOD_HOURS * 60UL * 60UL * 1000UL );
-        }
-        // Check if the post watering screen is being displayed and has timed out
-        else if( g_globalData.systemState == e_systemState_postWatering )
-        {
-            if( ( absolute_time_diff_us( get_absolute_time(), g_globalData.screenTimeoutTs ) / 1000LL ) < 0LL )
-            {
-                m_clearScreen();
-                g_globalData.systemState = e_systemState_idle;
-            }
-        }
-
-        sleep_ms( 50 );
-
-        // // Check in order of importance
-        // if( g_globalData.flag_displayInfo == true )
-        // {
-        //     if( g_globalData.state_display != e_displayState_infoTerminal )
-        //     {
-        //         // Clear the display
-        //         m_clearScreen();
-        //         // Set new display status
-        //         g_globalData.state_display = e_displayState_infoTerminal;
-        //         g_globalData.screenChangeTimestamp = get_absolute_time();
-        //         // Create a terminal and write the info
-        //         oled_terminalInit( 12, TERMINAL_NORMAL_COLOUR );
-        //         //                  "MAX TERMINAL WIDTH"
-        //         oled_terminalWrite( "No SD card present" );
-        //         oled_terminalWrite( "Next watering in:" );
-        //         char text[19];
-        //         m_timeUntil( &text[0], sizeof(text), g_globalData.nextWateringTimestamp );
-        //         oled_terminalWrite( text );
-        //     }
-
-        //     // bool longPressActivated = false;
-        //     // while( gpio_get( INPUT_BUTTON_PIN ) )
-        //     // {
-
-        //     // }
-
-        // }
-        // if( g_globalData.flag_watering == true )
-        // {
-        //     // Clear the display
-
-
-        //     // Run the pump
-        //     pump_run();
-
-        //     // Clear the watering flag
-        //     g_globalData.flag_watering = false;
-        //     // If a displayInfo flag was raised, it's now not relevant so clear
-        //     g_globalData.flag_displayInfo = false;
-
-        //     // Setup a new alarm
-        //     cancel_alarm( g_globalData.alarm_watering );
-        //     g_globalData.nextWateringTimestamp = make_timeout_time_ms( make_timeout_time_ms( DEFAULT_WATERING_PERIOD_HOURS * 60UL * 60UL * 1000UL ) );
-        //     g_globalData.alarm_watering = add_alarm_in_ms( g_globalData.nextWateringTimestamp,
-        //                                                    m_noSdCardWateringCb, NULL, false );
-
-        // }
-        // else if( g_globalData.flag_displayInfo == true )
-        // {
-        //     // Display some info
-        // }
-
-        // The sleep function should put the board into low power mode for a short time
-        // printf( "loop\n" );
-        // sleep_ms( 50 );
+        m_clearScreen();
+        g_globalData.systemState = e_systemState_info;
+    }
+    // Else, check if the screen has timed out
+    else if( absolute_time_diff_us( get_absolute_time(), g_globalData.screenTimeoutTs ) < 0 )
+    {
+        // Screen has timed out, so go into idle state
+        m_clearScreen();
+        g_globalData.systemState = e_systemState_idle;
     }
 }
+
+static inline void m_loopIdle( void )
+{
+    // Check for button input
+    if( gpio_get( g_globalData.buttonPin ) )
+    {
+        // The button is pressed so go into the info state
+        g_globalData.systemState = e_systemState_info;
+    }
+    // If there is no user input, check for something to notify the user of
+    if( () || () )
+    {
+
+    }
+}
+
+static inline void m_loopInfo( void )
+{
+
+}
+
+// /* NO SD CARD LOOP */
+// static void m_mainLoopNoSdCard( void )
+// {
+//     g_globalData.nextWateringTs = make_timeout_time_ms( ( DEFAULT_WATERING_PERIOD_HOURS * 60UL * 60UL * 1000UL ) / 2UL );
+//     g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
+
+//     while( true ) // Infinite loop
+//     {
+//         /* Need to perform checks in order of importance */
+
+//         // If button is pressed and not yet in info mode, print loads of stuff
+//         if( ( gpio_get( INPUT_BUTTON_PIN ) == true ) &&
+//             ( g_globalData.systemState != e_systemState_info ) && 
+//             ( g_globalData.systemState != e_systemState_startWatering ) )
+//         {
+//             // Display info
+//             m_clearScreen();
+//             g_globalData.systemState = e_systemState_info;
+//             oled_terminalInit( TERMINAL_FONT_SIZE, TERMINAL_ERROR_COLOUR );
+//             oled_terminalWrite( "NO SD CARD MODE" );
+//             if( g_globalData.tankState == e_tankState_dry )
+//             {
+//                 oled_terminalWrite( "TANK IS DRY!" );
+//             }
+//             if( g_globalData.tankState == e_tankState_ok )
+//             {
+//                 oled_terminalWrite( "Tank contains water" );
+//             }
+//             else
+//             {
+//                 oled_terminalWrite( "Tank status unknown" );
+//             }
+//             oled_terminalWrite( "Next watering in:" );
+//             m_timeToString( &m_textBuffer[0], sizeof( m_textBuffer ), g_globalData.nextWateringTs );
+//             oled_terminalWrite( m_textBuffer );
+//             oled_terminalWrite( "Hold to water now" );
+//             oled_terminalSetLine( 6 );
+//             m_terminalLoadingString( &m_textBuffer[0], sizeof( m_textBuffer ), 0 );
+//             oled_terminalWrite( m_textBuffer );
+//             // Set screen timeout
+//             g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
+//         }
+//         // If button pressed but already in info mode, allow for a long press
+//         if( ( gpio_get( INPUT_BUTTON_PIN ) == true ) &&
+//             ( g_globalData.systemState == e_systemState_info ) && 
+//             ( g_globalData.systemState != e_systemState_startWatering ) )
+//         {
+//             absolute_time_t buttonPressStartTime = get_absolute_time();
+//             bool longPress = false;
+//             int64_t msSinceButtonPressed;
+//             uint8_t progress;
+//             while( gpio_get( INPUT_BUTTON_PIN ) )
+//             {
+//                 // Update the next watering time
+//                 oled_terminalSetLine( 3 );
+//                 m_timeToString( &m_textBuffer[0], sizeof( m_textBuffer ), g_globalData.nextWateringTs );
+//                 oled_terminalWrite( m_textBuffer );
+//                 // Update the long press loading bar thing
+//                 msSinceButtonPressed = absolute_time_diff_us( buttonPressStartTime, get_absolute_time() ) / 1000LL;
+//                 progress = (uint8_t) ( ( msSinceButtonPressed * 100LL ) / BUTTON_LONG_PRESS_TIME_MS );
+//                 oled_terminalSetLine( 6 );
+//                 m_terminalLoadingString( &m_textBuffer[0], sizeof( m_textBuffer ), progress );
+//                 oled_terminalWrite( m_textBuffer );
+//                 if( progress >= 100 )
+//                 {
+//                     longPress = true;
+//                     g_globalData.systemState = e_systemState_startWatering;
+//                     break;
+//                 }
+//                 sleep_ms( 20 );
+//             }
+//             if( longPress == false )
+//             {
+//                 // Set screen timeout
+//                 g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
+//             }
+//         }
+//         // If button not pressed but still in info mode, update the watering time
+//         // and check if the screen should have timed out
+//         else if( g_globalData.systemState == e_systemState_info )
+//         {
+//             // Check for timeout
+//             if( absolute_time_diff_us( get_absolute_time(), g_globalData.screenTimeoutTs ) < 0 )
+//             {
+//                 // Clear screen due to timeout
+//                 m_clearScreen();
+//                 g_globalData.systemState = e_systemState_idle;
+//             }
+//             else
+//             {
+//                 // Update screen as it has not timed out
+//                 oled_terminalSetLine( 3 );
+//                 m_timeToString( &m_textBuffer[0], sizeof( m_textBuffer ), g_globalData.nextWateringTs );
+//                 oled_terminalWrite( m_textBuffer );
+//                 oled_terminalSetLine( 6 );
+//                 m_terminalLoadingString( &m_textBuffer[0], sizeof( m_textBuffer ), 0 );
+//                 oled_terminalWrite( m_textBuffer );
+//             }
+//         }
+//         // If the system is still on the init screen, check if it should time out
+//         else if( g_globalData.systemState == e_systemState_init )
+//         {
+//             if( absolute_time_diff_us( get_absolute_time(), g_globalData.screenTimeoutTs ) < 0 )
+//             {
+//                 g_globalData.systemState = e_systemState_idle;
+//                 m_clearScreen();
+//             }
+//         }
+//         // Check if it's time to water
+//         else if( ( g_globalData.systemState == e_systemState_startWatering ) || 
+//                  ( ( absolute_time_diff_us( get_absolute_time(), g_globalData.nextWateringTs ) / 1000LL ) < 0LL ) )
+//         {
+//             // Clear screen ready for the pump running screen
+//             m_clearScreen();
+//             g_globalData.systemState = e_systemState_startWatering;
+//             // Run the pump
+//             pump_run();
+//             // Set screen state and screen timeout
+//             g_globalData.systemState = e_systemState_postWatering;
+//             g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
+//             // Set the next watering time
+//             g_globalData.nextWateringTs = make_timeout_time_ms( DEFAULT_WATERING_PERIOD_HOURS * 60UL * 60UL * 1000UL );
+//         }
+//         // Check if the post watering screen is being displayed and has timed out
+//         else if( g_globalData.systemState == e_systemState_postWatering )
+//         {
+//             if( ( absolute_time_diff_us( get_absolute_time(), g_globalData.screenTimeoutTs ) / 1000LL ) < 0LL )
+//             {
+//                 m_clearScreen();
+//                 g_globalData.systemState = e_systemState_idle;
+//             }
+//         }
+
+//         sleep_ms( 50 );
+
+//         // // Check in order of importance
+//         // if( g_globalData.flag_displayInfo == true )
+//         // {
+//         //     if( g_globalData.state_display != e_displayState_infoTerminal )
+//         //     {
+//         //         // Clear the display
+//         //         m_clearScreen();
+//         //         // Set new display status
+//         //         g_globalData.state_display = e_displayState_infoTerminal;
+//         //         g_globalData.screenChangeTimestamp = get_absolute_time();
+//         //         // Create a terminal and write the info
+//         //         oled_terminalInit( 12, TERMINAL_NORMAL_COLOUR );
+//         //         //                  "MAX TERMINAL WIDTH"
+//         //         oled_terminalWrite( "No SD card present" );
+//         //         oled_terminalWrite( "Next watering in:" );
+//         //         char text[19];
+//         //         m_timeUntil( &text[0], sizeof(text), g_globalData.nextWateringTimestamp );
+//         //         oled_terminalWrite( text );
+//         //     }
+
+//         //     // bool longPressActivated = false;
+//         //     // while( gpio_get( INPUT_BUTTON_PIN ) )
+//         //     // {
+
+//         //     // }
+
+//         // }
+//         // if( g_globalData.flag_watering == true )
+//         // {
+//         //     // Clear the display
+
+
+//         //     // Run the pump
+//         //     pump_run();
+
+//         //     // Clear the watering flag
+//         //     g_globalData.flag_watering = false;
+//         //     // If a displayInfo flag was raised, it's now not relevant so clear
+//         //     g_globalData.flag_displayInfo = false;
+
+//         //     // Setup a new alarm
+//         //     cancel_alarm( g_globalData.alarm_watering );
+//         //     g_globalData.nextWateringTimestamp = make_timeout_time_ms( make_timeout_time_ms( DEFAULT_WATERING_PERIOD_HOURS * 60UL * 60UL * 1000UL ) );
+//         //     g_globalData.alarm_watering = add_alarm_in_ms( g_globalData.nextWateringTimestamp,
+//         //                                                    m_noSdCardWateringCb, NULL, false );
+
+//         // }
+//         // else if( g_globalData.flag_displayInfo == true )
+//         // {
+//         //     // Display some info
+//         // }
+
+//         // The sleep function should put the board into low power mode for a short time
+//         // printf( "loop\n" );
+//         // sleep_ms( 50 );
+//     }
+// }
 
 /* REBOOT */
 static inline void m_rebootBoard( void )
@@ -471,6 +541,12 @@ static void m_basilOsScreen( void )
         }
     }
     cyw43_arch_gpio_put( CYW43_WL_GPIO_LED_PIN, 0 );
+}
+
+static inline void m_setSystemState( t_systemState state )
+{
+    g_globalData. // YOU WERE HERE
+    g_globalData.systemState = state;
 }
 
 static void m_clearScreen( void )

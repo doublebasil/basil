@@ -204,7 +204,7 @@ void oled_loadingCircleDisplay( uint8_t progress );
  * --------------------
  * Deinitialised the loading circle/donut, and free the allocated bitmap memory
  *
- * progress: 0 to 255 where 255 is finished
+ * parameters: none
  *
  * returns: void
  */

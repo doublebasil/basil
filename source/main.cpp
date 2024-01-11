@@ -14,7 +14,9 @@
 #include "settings.hpp"
 #include "global.hpp"
 
-/* --- OTHER INCLUDES --- */
+#if defined(OLED_INCLUDE_FONT8) || defined(OLED_INCLUDE_FONT16) || defined(OLED_INCLUDE_FONT20) || !defined(OLED_INCLUDE_FONT12) || !defined(OLED_INCLUDE_FONT24) || defined(OLED_INCLUDE_TEST_FUNCTION) || !defined(OLED_INCLUDE_LOADING_CIRCLE) || !defined(OLED_INCLUDE_LOADING_BAR_HORIZONTAL) || !defined(OLED_INCLUDE_SD_IMAGES) || !defined(OLED_INCLUDE_QR_GENERATOR)
+#error "OLED settings includes unnecessary font tables or functions, or does not include required font tables"
+#endif
 
 /* --- HARDWARE DEFINITIONS --- */
 #define OLED_DATA_IN_PIN        ( 19 )
@@ -36,24 +38,28 @@
 
 /* --- OTHER DEFINITIONS --- */
 // #define TERMINAL_NORMAL_COLOUR  ( 0xFD44 ) // Retro terminal yellow
-#define TERMINAL_NORMAL_COLOUR  ( 0x2444 )
+#define TERMINAL_NORMAL_COLOUR          ( 0x2444 ) // Forest green
 // #define TERMINAL_ERROR_COLOUR   ( 0xE005 )
-#define TERMINAL_NO_SDC_COLOUR  ( 0xFD44 )
-#define TERMINAL_FONT_SIZE      ( 12 )
+// #define TERMINAL_NO_SDC_COLOUR  ( 0xFD44 )
+// #define TERMINAL_ERROR_COLOUR           ( 0x9B23 ) // Golden brown
+// #define TERMINAL_ERROR_COLOUR           ( 0x6205 )
+// #define TERMINAL_ERROR_COLOUR           ( 0x05BD ) // Cyan (Subtractive Primary)
+#define TERMINAL_ERROR_COLOUR           ( 0b0000000000011111 ) // Blue
+#define TERMINAL_FONT_SIZE              ( 12 )
 // If the SD card could not be read or the NTP server could not be connected to,
 // the following settings will be used as defaults
 #define DEFAULT_WATERING_PERIOD_HOURS   ( 12 )
 #define DEFAULT_WATERING_LENGTH_MS      ( 1000 )
 // Screen related timings
-#define SCREEN_TIMEOUT_MS               ( 5000 )
+#define SCREEN_TIMEOUT_MS               ( 10000 )
 #define BUTTON_LONG_PRESS_TIME_MS       ( 3000LL )
 
 /* --- MODULE VARIABLES --- */
 t_globalData g_globalData;
-static char textBuffer[19];
+static char m_textBuffer[19];
 
 /* --- MODULE SCOPE FUNCTION PROTOTYPE --- */
-/* MAIN LOOPS */
+/* NO SD CARD LOOP */
 static void m_mainLoopNoSdCard( void );
 /* REBOOT */
 static inline void m_rebootBoard( void );
@@ -62,6 +68,7 @@ static inline void m_cyw43Init( void );
 static inline void m_oledInit( void );
 static inline void m_sdCardInit( void );
 /* OTHER FUNCTIONS */
+static void m_basilOsScreen( void );
 static void m_clearScreen( void );
 static void m_timeToString( char* charArrayStart, uint8_t charArraySize, absolute_time_t timestamp );
 static void m_terminalLoadingString( char* charArrayStart, uint8_t charArraySize, uint8_t percentageComplete );
@@ -89,22 +96,8 @@ int main( void )
     // Create a terminal for the display  "MAX TERMINAL WIDTH"
     oled_terminalInit( TERMINAL_FONT_SIZE, TERMINAL_NORMAL_COLOUR );
 
-    for( uint8_t i = 0U; i < 3; i++ )
-        oled_terminalWrite( "" );
-    
-    oled_terminalWrite( " _           _  __ " );
-    oled_terminalWrite( "|_) _. _ o| / \\(_  " );
-    oled_terminalWrite( "|_)(_|_> || \\_/__) " );
-    oled_terminalWrite( " " );
-
-    // Flicker the built in LED to indicate the pico has booted
-    for( int i = 0; i < 3; i++ )
-    {
-        cyw43_arch_gpio_put( CYW43_WL_GPIO_LED_PIN, 1 );
-        sleep_ms( 50 );
-        cyw43_arch_gpio_put( CYW43_WL_GPIO_LED_PIN, 0 );
-        sleep_ms( 50 );
-    }
+    // Run the BASIL OS screen, which also flickers the built in LED
+    m_basilOsScreen();
 
     oled_terminalWrite( "OLED initialised" );
     oled_terminalWrite( "CYW43 initialised" );
@@ -129,43 +122,49 @@ int main( void )
 
     // Read the settings.txt file from the SD card
     oled_terminalWrite( "Load SDC settings" );
-    // if( settings_readFromSDCard( &g_globalData ) != 0 )
-    if( true )
+    if( settings_readFromSDCard( &g_globalData ) != 0 )
+    // if( true )
     {
         g_globalData.settingsReadOk = false;
         g_globalData.wateringDurationMs = DEFAULT_WATERING_LENGTH_MS;
-        oled_terminalSetNewColour( TERMINAL_NO_SDC_COLOUR );
-        oled_terminalWrite( "ERROR Cannot read" );
-        oled_terminalWrite( "      settings.txt" );
-        sleep_ms( 1000 );
-        oled_terminalWrite( "Will use default" );
-        oled_terminalWrite( "settings:" );
-        oled_terminalWrite( "Watering every" );
-        snprintf( textBuffer, sizeof(textBuffer), "%d hours for %d", DEFAULT_WATERING_PERIOD_HOURS, DEFAULT_WATERING_LENGTH_MS );
-        oled_terminalWrite( textBuffer );
-        oled_terminalWrite( "milliseconds" );
-        oled_terminalWrite( "" );
+        oled_terminalClear();
+        oled_writeText( 0, 0, "ERROR", 24, TERMINAL_ERROR_COLOUR, false );
+
+        // // oled_terminalSetNewColour( TERMINAL_ERROR_COLOUR );
+        // oled_terminalWrite( "ERROR Cannot read" );
+        // oled_terminalWrite( "      settings.txt" );
+        // sleep_ms( 1000 );
+        // oled_terminalWrite( "Will use default" );
+        // oled_terminalWrite( "settings:" );
+        // oled_terminalWrite( "Watering every" );
+        // snprintf( m_textBuffer, sizeof(m_textBuffer), "%d hours for %d", DEFAULT_WATERING_PERIOD_HOURS, DEFAULT_WATERING_LENGTH_MS );
+        // oled_terminalWrite( m_textBuffer );
+        // oled_terminalWrite( "milliseconds" );
+        // oled_terminalWrite( "" );
 
         m_mainLoopNoSdCard(); // This function will never exit
     }
     
     g_globalData.settingsReadOk = true;
+    oled_terminalWrite( "Done" );
+
+    oled_sdWriteImage( "notification_img.txt", 20, 20 );
 
     /*
     // // Show off by reading some of the SD card settings
-    // snprintf( textBuffer, sizeof(textBuffer), "->SSID=%s", g_globalData.wifiSsid );
-    // oled_terminalWrite( textBuffer );
+    // snprintf( m_textBuffer, sizeof(m_textBuffer), "->SSID=%s", g_globalData.wifiSsid );
+    // oled_terminalWrite( m_textBuffer );
     // uint8_t wateringTimes = 0U;
     // for( uint8_t index = 0; index < MAX_NUMBER_OF_WATERING_TIMES; index++ )
     // {
     //     if( g_globalData.wateringTimes[index] != -1 )
     //         ++wateringTimes;
     // }
-    // snprintf( textBuffer, sizeof(textBuffer), "->Water %d times", wateringTimes );
-    // oled_terminalWrite( textBuffer );
+    // snprintf( m_textBuffer, sizeof(m_textBuffer), "->Water %d times", wateringTimes );
+    // oled_terminalWrite( m_textBuffer );
     // oled_terminalWrite( "  per day" );
-    // snprintf( textBuffer, sizeof(textBuffer), "->Water for %d", g_globalData.wateringDurationMs );
-    // oled_terminalWrite( textBuffer );
+    // snprintf( m_textBuffer, sizeof(m_textBuffer), "->Water for %d", g_globalData.wateringDurationMs );
+    // oled_terminalWrite( m_textBuffer );
     // oled_terminalWrite( "  milliseconds" );
 
 
@@ -184,8 +183,8 @@ int main( void )
 
     // // Connect to WiFi
     // oled_terminalWrite( "Connecting to SSID" );
-    // snprintf( textBuffer, sizeof(textBuffer), "\"%s\"", WIFI_SSID );
-    // oled_terminalWrite( textBuffer );
+    // snprintf( m_textBuffer, sizeof(m_textBuffer), "\"%s\"", WIFI_SSID );
+    // oled_terminalWrite( m_textBuffer );
 
     // cyw43_arch_wifi_connect_timeout_ms( WIFI_SSID,
     //     WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000 );
@@ -198,7 +197,7 @@ int main( void )
 
 /* --- MODULE SCOPE FUNCTIONS --- */
 
-/* MAIN LOOPS */
+/* NO SD CARD LOOP */
 static void m_mainLoopNoSdCard( void )
 {
     g_globalData.nextWateringTs = make_timeout_time_ms( ( DEFAULT_WATERING_PERIOD_HOURS * 60UL * 60UL * 1000UL ) / 2UL );
@@ -216,7 +215,7 @@ static void m_mainLoopNoSdCard( void )
             // Display info
             m_clearScreen();
             g_globalData.systemState = e_systemState_info;
-            oled_terminalInit( TERMINAL_FONT_SIZE, TERMINAL_NO_SDC_COLOUR );
+            oled_terminalInit( TERMINAL_FONT_SIZE, TERMINAL_ERROR_COLOUR );
             oled_terminalWrite( "NO SD CARD MODE" );
             if( g_globalData.tankState == e_tankState_dry )
             {
@@ -231,12 +230,12 @@ static void m_mainLoopNoSdCard( void )
                 oled_terminalWrite( "Tank status unknown" );
             }
             oled_terminalWrite( "Next watering in:" );
-            m_timeToString( &textBuffer[0], sizeof( textBuffer ), g_globalData.nextWateringTs );
-            oled_terminalWrite( textBuffer );
+            m_timeToString( &m_textBuffer[0], sizeof( m_textBuffer ), g_globalData.nextWateringTs );
+            oled_terminalWrite( m_textBuffer );
             oled_terminalWrite( "Hold to water now" );
             oled_terminalSetLine( 6 );
-            m_terminalLoadingString( &textBuffer[0], sizeof( textBuffer ), 0 );
-            oled_terminalWrite( textBuffer );
+            m_terminalLoadingString( &m_textBuffer[0], sizeof( m_textBuffer ), 0 );
+            oled_terminalWrite( m_textBuffer );
             // Set screen timeout
             g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
         }
@@ -253,14 +252,14 @@ static void m_mainLoopNoSdCard( void )
             {
                 // Update the next watering time
                 oled_terminalSetLine( 3 );
-                m_timeToString( &textBuffer[0], sizeof( textBuffer ), g_globalData.nextWateringTs );
-                oled_terminalWrite( textBuffer );
+                m_timeToString( &m_textBuffer[0], sizeof( m_textBuffer ), g_globalData.nextWateringTs );
+                oled_terminalWrite( m_textBuffer );
                 // Update the long press loading bar thing
                 msSinceButtonPressed = absolute_time_diff_us( buttonPressStartTime, get_absolute_time() ) / 1000LL;
                 progress = (uint8_t) ( ( msSinceButtonPressed * 100LL ) / BUTTON_LONG_PRESS_TIME_MS );
                 oled_terminalSetLine( 6 );
-                m_terminalLoadingString( &textBuffer[0], sizeof( textBuffer ), progress );
-                oled_terminalWrite( textBuffer );
+                m_terminalLoadingString( &m_textBuffer[0], sizeof( m_textBuffer ), progress );
+                oled_terminalWrite( m_textBuffer );
                 if( progress >= 100 )
                 {
                     longPress = true;
@@ -290,11 +289,11 @@ static void m_mainLoopNoSdCard( void )
             {
                 // Update screen as it has not timed out
                 oled_terminalSetLine( 3 );
-                m_timeToString( &textBuffer[0], sizeof( textBuffer ), g_globalData.nextWateringTs );
-                oled_terminalWrite( textBuffer );
+                m_timeToString( &m_textBuffer[0], sizeof( m_textBuffer ), g_globalData.nextWateringTs );
+                oled_terminalWrite( m_textBuffer );
                 oled_terminalSetLine( 6 );
-                m_terminalLoadingString( &textBuffer[0], sizeof( textBuffer ), 0 );
-                oled_terminalWrite( textBuffer );
+                m_terminalLoadingString( &m_textBuffer[0], sizeof( m_textBuffer ), 0 );
+                oled_terminalWrite( m_textBuffer );
             }
         }
         // If the system is still on the init screen, check if it should time out
@@ -441,6 +440,33 @@ static inline void m_sdCardInit( void )
 }
 
 /* OTHER FUNCTIONS */
+
+static void m_basilOsScreen( void )
+{
+    bool ledState = true;
+    char loadingChars[4] = {'|', '/', '-', '\\'};
+
+    for( uint8_t i = 0U; i < 3; i++ )
+        oled_terminalWrite( "" );
+
+    oled_terminalWrite( " _           _  __" );
+    oled_terminalWrite( "|_) _. _ o| / \\(_" );
+    oled_terminalWrite( "|_)(_|_> || \\_/__)" );
+    oled_terminalWrite( " " );
+
+    for( uint8_t loops = 0U; loops < 4; loops++ )
+    {
+        for( uint8_t characterIndex = 0U; characterIndex < 4; characterIndex++ )
+        {
+            snprintf( m_textBuffer, sizeof( m_textBuffer ), "        %c", loadingChars[characterIndex] );
+            oled_terminalWriteTemp( m_textBuffer );
+            cyw43_arch_gpio_put( CYW43_WL_GPIO_LED_PIN, ledState );
+            ledState = !ledState;
+            sleep_ms( 100 );
+        }
+    }
+    cyw43_arch_gpio_put( CYW43_WL_GPIO_LED_PIN, 0 );
+}
 
 static void m_clearScreen( void )
 {

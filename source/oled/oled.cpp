@@ -1400,7 +1400,7 @@ static inline void m_terminalWrite( const char text[] )
 
     uint8_t terminalHeightInLines = m_displayHeight / m_terminalFontSize;
 
-    // If the last line was copy from the previous bitmap except for the temporary line
+    // If the last line temporary was copy from the previous bitmap except for the temporary line
     if( ( m_terminalIsLineTemp == true ) )
     {
         // Copy everything except the previous line
@@ -1424,7 +1424,7 @@ static inline void m_terminalWrite( const char text[] )
         // Ensure we aren't writing out of array bounds
         eraseEndIndex = ( eraseEndIndex < m_terminalBitmapCallocSize ) ? eraseEndIndex : m_terminalBitmapCallocSize;
         for( uint16_t bitmapIndex = copyEndIndex; bitmapIndex < eraseEndIndex; bitmapIndex++ )
-            desiredBitmapPtr[0] = 0x00U;
+            desiredBitmapPtr[bitmapIndex] = 0x00U;
     }
     // If we've ran out of lines, scroll down when copying to the other bitmap
     else if( m_terminalCurrentLine == terminalHeightInLines )

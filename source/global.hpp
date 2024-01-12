@@ -27,6 +27,14 @@ typedef enum
     e_tankState_dry,
 } t_tankState;
 
+typedef enum
+{
+    e_infoScreen_dryTank,
+    e_infoScreen_binDayRecycling,
+    e_infoScreen_binDayLandfill,
+    e_infoScreen_standardInfo,
+} t_infoScreenCurrentInfo;
+
 /* GLOBAL DATA STRUCT */
 
 typedef struct
@@ -44,12 +52,16 @@ typedef struct
     uint8_t buttonPin;
     /* STATES */
     t_systemState systemState;
-    t_systemState previousSystemState;
+    bool stateHasInitialised; // Ensure you use m_setSystemState so that this variable gets set to false
     t_tankState tankState;
+    /* STATE SPECIFIC VARIABLES */
+    bool notificationDisplayed; // For idle state
+    t_infoScreenCurrentInfo currentInfo; // For info state
     /* TIME STAMPS */
+    absolute_time_t stateStartTimestamp;
     absolute_time_t screenTimeoutTs;
     absolute_time_t nextWateringTs;
-    absolute_time_t nextRecyclingBinday;
+    absolute_time_t nextRecyclingBinday; // Bin day time stamps are the midnight before
     absolute_time_t nextLandfillBinday;
     /* WEBSERVER SETTINGS */
     bool webServerRunning;

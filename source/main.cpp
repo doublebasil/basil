@@ -53,14 +53,13 @@
 #define DEFAULT_WATERING_LENGTH_MS      ( 1000 )
 /* TIMING RELATED MAGIC NUMBERS */
 #define MAIN_LOOP_SLEEP_DURATION_MS     ( 50 )
-// #define SCREEN_TIMEOUT_MS               ( 10000 )
-#define SCREEN_TIMEOUT_MS               ( 2000 ) // TEMP
+#define SCREEN_TIMEOUT_MS               ( 15000 )
 #define BUTTON_LONG_PRESS_TIME_MS       ( 3000LL )
 // When the idle screen notification icon is show, the following timings are used
-// #define NOTIFICATION_ON_TIME            ( 1000 )
-// #define NOTIFICATION_OFF_TIME           ( 4000 )
-#define NOTIFICATION_ON_TIME            ( 4000 ) // TEMP
-#define NOTIFICATION_OFF_TIME           ( 1000 ) // TEMP
+#define NOTIFICATION_ON_TIME            ( 1000 )
+#define NOTIFICATION_OFF_TIME           ( 4000 )
+#define INFO_TIME_PER_SCREEN_MS         ( 7500 )
+#define INFO_MIN_SCREEN_TIME_MS         ( 3000 ) // Don't swap to a new screen if the info state will time out within this time
 
 #define DEBUG_PRINT_STATE_CHANGES
 
@@ -92,6 +91,9 @@ static void inline m_setSystemState( t_systemState state );
 static void m_clearScreen( void );
 static void m_timeToString( char* charArrayStart, uint8_t charArraySize, absolute_time_t timestamp );
 static void m_terminalLoadingBar( char* charArrayStart, uint8_t charArraySize, uint8_t percentageComplete );
+static inline bool m_checkRepeatedButtonPress( void );
+static inline bool m_checkDoubleButtonPress( void );
+static inline void m_infoStateMoveToNextScreen( void );
 
 // CHANGE THE POWER SAVING MODE WHEN LAUNCHING THE WEB SERVER
 
@@ -103,12 +105,16 @@ int main( void )
     g_globalData.displayWidth = OLED_DISPLAY_WIDTH;
     g_globalData.displayHeight = OLED_DISPLAY_HEIGHT;
     g_globalData.buttonPin = INPUT_BUTTON_PIN;
+    g_globalData.doublePressRegisteredTimestamp = nil_time;
+    g_globalData.repeatedButtonPressRegisteredTimestamp = nil_time;
+    for( uint8_t index = 0U; index < INFO_SCREEN_REPEATED_PRESSES; index++ )
+        g_globalData.buttonPressTimestamps[index] = nil_time;
 
     // Initialise the debug output
     stdio_init_all();
     // printf statements may not work for about a second after calling the stdio init
 
-    // WiFi driver initialisation
+    // WiFi driver initialisation, also needed for on built-in LED
     m_cyw43Init();
 
     // OLED screen initialisation
@@ -218,6 +224,7 @@ int main( void )
 
     // If the loop somehow exits, reboot the board
     m_rebootBoard();
+    
 }
 
 /* --- MODULE SCOPE FUNCTIONS --- */
@@ -262,9 +269,9 @@ static inline void m_loopIdle( void )
         m_setSystemState( e_systemState_watering );
     }
     // If there is no user input, check for something to notify the user of
-    else if( m_checkLandfillBinday() ||
+    else if( g_globalData.tankState == e_tankState_dry ||
              m_checkRecyclingBinday() || 
-             g_globalData.tankState == e_tankState_dry )
+             m_checkLandfillBinday() )
     {
         // Display an intermittent notification screen
         if( ( to_us_since_boot( get_absolute_time() ) / 1000ULL ) % ( NOTIFICATION_OFF_TIME + NOTIFICATION_ON_TIME ) > NOTIFICATION_OFF_TIME )
@@ -304,13 +311,360 @@ static inline void m_loopIdle( void )
 
 static inline void m_loopInfo( void )
 {
+    // Initialise the info state if not already initialised
     if( g_globalData.stateHasInitialised == false )
     {
-        g_globalData.currentInfo = e_infoScreen_dryTank;
+        // Determine which screen to show first
+        // Anything that causes the notification icon to show will get priority here
+        if( g_globalData.tankState == e_tankState_dry )
+            g_globalData.infoMode = e_infoScreen_dryTank;
+        else if( m_checkRecyclingBinday() )
+            g_globalData.infoMode = e_infoScreen_binDayRecycling;
+        else if( m_checkLandfillBinday() )
+            g_globalData.infoMode = e_infoScreen_binDayLandfill;
+        else
+            g_globalData.infoMode = e_infoScreen_standard;
+        
+        g_globalData.showHelpScreen = false;
+        g_globalData.showLongPressScreen = false;
+        
+        // Wait for button to be released
+        while( gpio_get( g_globalData.buttonPin ) )
+            sleep_ms( 50 );
+        
+        g_globalData.displayedInfo = e_infoScreen_none;
+        g_globalData.buttonPressTsIndex = 0U;
         g_globalData.stateHasInitialised = true;
+        // Set the screen timeout, which is when this state will end
+        g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
     }
-    // Check if there is something to notify the user of, this will take priority over the normal info
+    // Check if the state has timed out
+    if( absolute_time_diff_us( get_absolute_time(), g_globalData.screenTimeoutTs ) < 0 )
+    {
+        // Go into idle mode
+        m_clearScreen();
+        m_setSystemState( e_systemState_idle );
+    }
+    // Check for button presses
+    if( gpio_get( g_globalData.buttonPin ) )
+    {
+        // Log the button press
+        absolute_time_t buttonPressTime = get_absolute_time();
+        g_globalData.buttonPressTimestamps[g_globalData.buttonPressTsIndex] = buttonPressTime;
+        ++g_globalData.buttonPressTsIndex;
+        if( g_globalData.buttonPressTsIndex == INFO_SCREEN_REPEATED_PRESSES )
+            g_globalData.buttonPressTsIndex = 0U;
+        
+        bool longPressActivated = false;
+        absolute_time_t longPressStartTime = get_absolute_time();
 
+        // Check if the button is being held
+        while( gpio_get( g_globalData.buttonPin ) )
+        {
+            // TODO
+            if( ( absolute_time_diff_us( longPressStartTime, get_absolute_time() ) > ( LONG_PRESS_MIN_TIME_MS * 1000LL ) ) 
+                && ( longPressActivated == false ) )
+            {
+                longPressActivated = true;
+                printf("Long press\n");
+                // Initialise the long press screen
+                // TODO
+            }
+            else if( longPressActivated == true )
+            {
+                // Update the long press screen
+                // TODO
+            }
+
+            sleep_ms( 50 );
+        }
+
+        if( longPressActivated == false )
+        {
+            // If a long press was not detected, process the 
+            if( m_checkRepeatedButtonPress() )
+            {
+                // Process a repeated button press
+                // Set to propapropapropaganganda mode
+                g_globalData.infoMode = e_infoScreen_propaganda;
+                g_globalData.showHelpScreen = false;
+                g_globalData.showLongPressScreen = false;
+                g_globalData.altScreenTimeoutTimestamp = nil_time;
+            }
+            else if( m_checkDoubleButtonPress() )
+            {
+                // Process a double button press
+                // Do not show the help screen
+                g_globalData.showHelpScreen = false;
+                g_globalData.showLongPressScreen = false;
+                g_globalData.altScreenTimeoutTimestamp = nil_time;
+                // Move to the next screen
+                m_infoStateMoveToNextScreen();
+            }
+            else
+            {
+                // Process a single button press
+                // Show help if not already shown, hide help if already shown
+                if( g_globalData.showHelpScreen == false )
+                {
+                    g_globalData.showHelpScreen = true;
+                    g_globalData.altScreenTimeoutTimestamp = make_timeout_time_ms( HELP_SCREEN_TIMEOUT_MS );
+                }
+                else
+                {
+                    g_globalData.showHelpScreen = false;
+                    g_globalData.altScreenTimeoutTimestamp = nil_time; // Don't timeout
+                }
+            }
+        }
+
+        // Update the timeout time
+        g_globalData.screenTimeoutTs = make_timeout_time_ms( SCREEN_TIMEOUT_MS );
+    }
+    // Check if the alt screen has timed out
+    if( ( is_nil_time( g_globalData.altScreenTimeoutTimestamp ) == false )
+        && ( absolute_time_diff_us( get_absolute_time(), g_globalData.altScreenTimeoutTimestamp ) < 0LL ) )
+    {
+        g_globalData.showHelpScreen = false;
+        g_globalData.showLongPressScreen = false;
+        g_globalData.altScreenTimeoutTimestamp = nil_time;
+        g_globalData.displayedInfo = e_infoScreen_none;
+    }
+
+    // Display stuff
+    if( g_globalData.showLongPressScreen == true )
+    {
+        // Leave the display as it was set earlier by the long press function
+    }
+    else if( g_globalData.infoMode == e_infoScreen_dryTank )
+    {
+        // Check if the help screen should be shown
+        if( g_globalData.showHelpScreen == true )
+        {
+            m_clearScreen();
+            if( g_globalData.settingsReadOk == false )
+            {
+                // No SD card help
+                oled_terminalInit( 20, TERMINAL_ERROR_COLOUR );
+                oled_terminalWrite( "<tank state>" );
+                oled_terminalWrite( "<help>" );
+                oled_terminalWrite( "Single press:" );
+                oled_terminalWrite( "- Show help" );
+                oled_terminalWrite( "Double press:" );
+                oled_terminalWrite( "- Next info" );
+                oled_terminalWrite( "Hold:" );
+                oled_terminalWrite( "- Dismiss notification" );
+            }
+            else
+            {
+                // Even if icons are available, help will be very similar
+                oled_terminalInit( 20, TERMINAL_ERROR_COLOUR );
+                oled_terminalWrite( "<help>" );
+                oled_terminalWrite( "Single press:" );
+                oled_terminalWrite( "- Show help" );
+                oled_terminalWrite( "Double press:" );
+                oled_terminalWrite( "- Next info" );
+                oled_terminalWrite( "Hold:" );
+                oled_terminalWrite( "- Dismiss notification" );
+            }
+        }
+        // Check if this is the first time this screen is running
+        else if( g_globalData.infoMode != g_globalData.displayedInfo )
+        {
+            m_clearScreen();
+            if( g_globalData.settingsReadOk == false )
+            {
+                // Terminal version
+                oled_terminalInit( 20, TERMINAL_ERROR_COLOUR );
+                oled_terminalWrite( "<tank state>" );
+                oled_terminalWrite( "" );
+                oled_terminalWrite( "Dry tank" );
+                oled_terminalWrite( "detected" );
+            }
+            else
+            {
+                // Icon version
+                // TODO
+            }
+            g_globalData.displayedInfo = g_globalData.infoMode;
+        }
+    }
+    else if( g_globalData.infoMode == e_infoScreen_binDayLandfill )
+    {
+        if( g_globalData.settingsReadOk == false )
+        {
+            // Do nothing, bin day checking is only possible with the SD card present
+        }
+        // Check if the help screen should be shown
+        else if( g_globalData.showHelpScreen == true )
+        {
+            m_clearScreen();
+            oled_terminalInit( 20, TERMINAL_ERROR_COLOUR );
+            oled_terminalWrite( "<help>" );
+            oled_terminalWrite( "Single press:" );
+            oled_terminalWrite( "- Show help" );
+            oled_terminalWrite( "Double press:" );
+            oled_terminalWrite( "- Next info" );
+            oled_terminalWrite( "Hold:" );
+            oled_terminalWrite( "- Dismiss notification" );
+        }
+        // Check if this is the first time this screen is running
+        else if( g_globalData.infoMode != g_globalData.displayedInfo )
+        {
+            // TODO
+            // Show the bin day icon
+            g_globalData.displayedInfo = g_globalData.infoMode;
+        }
+    }
+    else if( g_globalData.infoMode == e_infoScreen_binDayRecycling )
+    {
+        if( g_globalData.settingsReadOk == false )
+        {
+            // Do nothing, bin day checking is only possible with the SD card present
+        }
+        // Check if the help screen should be shown
+        else if( g_globalData.showHelpScreen == true )
+        {
+            m_clearScreen();
+            oled_terminalInit( 20, TERMINAL_ERROR_COLOUR );
+            oled_terminalWrite( "<help>" );
+            oled_terminalWrite( "Single press:" );
+            oled_terminalWrite( "- Show help" );
+            oled_terminalWrite( "Double press:" );
+            oled_terminalWrite( "- Next info" );
+            oled_terminalWrite( "Hold:" );
+            oled_terminalWrite( "- Dismiss notification" );
+        }
+        // Check if this is the first time this screen is running
+        else if( g_globalData.infoMode != g_globalData.displayedInfo )
+        {
+            // TODO
+            // Show the bin day icon
+            g_globalData.displayedInfo = g_globalData.infoMode;
+        }
+    }
+    else if( g_globalData.infoMode == e_infoScreen_standard )
+    {
+        // Check if the help screen should be shown
+        if( g_globalData.showHelpScreen == true )
+        {
+            m_clearScreen();
+            if( g_globalData.settingsReadOk == false )
+            {
+                // No SD card help
+                oled_terminalInit( 20, TERMINAL_ERROR_COLOUR );
+                oled_terminalWrite( "<info screen>" );
+                oled_terminalWrite( "<help>" );
+                oled_terminalWrite( "Single press:" );
+                oled_terminalWrite( "- Show help" );
+                oled_terminalWrite( "Double press:" );
+                oled_terminalWrite( "- Next info" );
+                oled_terminalWrite( "Hold:" );
+                oled_terminalWrite( "- Water now" );
+            }
+            else
+            {
+                // Even if icons are available, help will be very similar
+                oled_terminalInit( 20, TERMINAL_ERROR_COLOUR );
+                oled_terminalWrite( "<help screen>" );
+                oled_terminalWrite( "Single press:" );
+                oled_terminalWrite( "- Show help" );
+                oled_terminalWrite( "Double press:" );
+                oled_terminalWrite( "- Next info" );
+                oled_terminalWrite( "Hold:" );
+                oled_terminalWrite( "- Water now" );
+            }
+        }
+        // Check if this is the first time this screen is running
+        else if( g_globalData.infoMode != g_globalData.displayedInfo )
+        {
+            m_clearScreen();
+            if( g_globalData.settingsReadOk == false )
+            {
+                // Terminal version
+                oled_terminalInit( 20, TERMINAL_ERROR_COLOUR );
+                oled_terminalWrite( "<info screen>" );
+                oled_terminalWrite( "" );
+                oled_terminalWrite( "Next watering:" );
+                m_timeToString( m_textBuffer, sizeof( m_textBuffer ), g_globalData.nextWateringTs );
+                oled_terminalWrite( m_textBuffer ); // LINE NO. 3
+            }
+            else
+            {
+                // Icon version
+                // TODO
+            }
+            g_globalData.displayedInfo = g_globalData.infoMode;
+        }
+        else
+        {
+            if( g_globalData.settingsReadOk == false )
+            {
+                // Update the timing on the screen
+                oled_terminalSetLine( 3 );
+                m_timeToString( m_textBuffer, sizeof( m_textBuffer ), g_globalData.nextWateringTs );
+                oled_terminalWrite( m_textBuffer );
+            }
+            else
+            {
+                // TODO 
+                // Update the time in the icon version
+            }
+        }
+    }
+    else if( g_globalData.infoMode == e_infoScreen_propaganda )
+    {
+        if( g_globalData.settingsReadOk == false )
+        {
+            // In terminal mode there's only so much propaganda I can create
+            const uint32_t numberOfPhrases = 5;
+            oled_terminalInit( 12, 0b1111100000000000 );
+            oled_terminalWrite( "Err..." );
+            switch( to_ms_since_boot( get_absolute_time() ) % numberOfPhrases )
+            {
+                case 0:
+                {
+                    oled_terminalWrite("Friends");
+                    oled_terminalWrite("Not Food!");
+                }
+                break;
+                case 1:
+                {
+                    oled_terminalWrite("Meat is");
+                    oled_terminalWrite("Murder!");
+                }
+                break;
+                case 2:
+                {
+                    oled_terminalWrite("Huggers");
+                    oled_terminalWrite("Not Hunters!");
+                }
+                break;
+                case 3:
+                {
+                    oled_terminalWrite("My Body Is");
+                    oled_terminalWrite("Not A Graveyard!");
+                }
+                break;
+                case 4:
+                default:
+                {
+                    oled_terminalWrite("Yes Ve gan");
+                    oled_terminalWrite("(Wtf am I doing)");
+                }
+                break;
+            }
+            oled_terminalWrite( "" );
+            oled_terminalWrite( "(I need the SD" );
+            oled_terminalWrite( " card for the" );
+            oled_terminalWrite( " real propaganda!)" );
+        }
+        else
+        {
+            // Go to town with some toxic (but not vulgar!) propaganda images
+            // TODO
+        }
+    }
 }
 
 /* REBOOT */
@@ -480,7 +834,7 @@ static inline void m_setSystemState( t_systemState state )
 #endif
     g_globalData.stateHasInitialised = false;
     g_globalData.systemState = state;
-    g_globalData.stateStartTimestamp = get_absolute_time();
+    // g_globalData.stateStartTimestamp = get_absolute_time();
 }
 
 static void m_clearScreen( void )
@@ -550,5 +904,155 @@ static void m_terminalLoadingBar( char* charArrayStart, uint8_t charArraySize, u
         }
 
         ++charArrayPtr;
+    }
+}
+
+static inline bool m_checkRepeatedButtonPress( void )
+{
+    int16_t mostRecentButtonPressIndex = (int16_t) g_globalData.buttonPressTsIndex - 1;
+    if( mostRecentButtonPressIndex < 0 )
+        mostRecentButtonPressIndex += INFO_SCREEN_REPEATED_PRESSES;
+    
+    int16_t oldestButtonPressIndex = (int16_t) g_globalData.buttonPressTsIndex;
+    if( oldestButtonPressIndex < 0 )
+        oldestButtonPressIndex += INFO_SCREEN_REPEATED_PRESSES;
+
+    absolute_time_t mostRecentButtonPressTs = g_globalData.buttonPressTimestamps[mostRecentButtonPressIndex];
+    absolute_time_t oldestButtonPressTs = g_globalData.buttonPressTimestamps[oldestButtonPressIndex];
+
+    if( ( is_nil_time( mostRecentButtonPressTs ) == true )
+        || ( is_nil_time( oldestButtonPressTs ) == true ) )
+    {
+        return false;
+    }
+
+    // Check if a repeated button press has already been registed recently
+    else if( ( is_nil_time( g_globalData.repeatedButtonPressRegisteredTimestamp ) == false )
+        && ( absolute_time_diff_us( g_globalData.repeatedButtonPressRegisteredTimestamp, mostRecentButtonPressTs ) < ( REPEATED_PRESSES_COOLDOWN_MS * 1000LL ) ) )
+    {
+        return false;
+    }
+
+    else if( absolute_time_diff_us( oldestButtonPressTs, mostRecentButtonPressTs ) < ( REPEATED_PRESSES_TIMING_MS * 1000LL ) )
+    {
+        g_globalData.repeatedButtonPressRegisteredTimestamp = get_absolute_time();
+        return true;
+    }
+
+    return false;
+}
+
+static inline bool m_checkDoubleButtonPress( void )
+{
+    int16_t mostRecentButtonPressIndex = (int16_t) g_globalData.buttonPressTsIndex - 1;
+    if( mostRecentButtonPressIndex < 0 )
+        mostRecentButtonPressIndex += INFO_SCREEN_REPEATED_PRESSES;
+
+    int16_t previousButtonPressIndex = (int16_t) g_globalData.buttonPressTsIndex - 2;
+    if( previousButtonPressIndex < 0 )
+        previousButtonPressIndex += INFO_SCREEN_REPEATED_PRESSES;
+
+    absolute_time_t mostRecentButtonPressTs = g_globalData.buttonPressTimestamps[mostRecentButtonPressIndex];
+    absolute_time_t previousButtonPressTs = g_globalData.buttonPressTimestamps[previousButtonPressIndex];
+
+    if( ( is_nil_time( mostRecentButtonPressTs ) == true )
+        || ( is_nil_time( previousButtonPressTs) == true ) )
+    {
+        return false;
+    }
+
+    // If a double button press has already happened recently, don't register a new one
+    else if( ( is_nil_time( g_globalData.doublePressRegisteredTimestamp ) == false )
+        && ( absolute_time_diff_us( g_globalData.doublePressRegisteredTimestamp, mostRecentButtonPressTs ) < ( DOUBLE_PRESS_COOLDOWN_MS * 1000LL ) ) )
+    {
+        return false;
+    }
+    else if( absolute_time_diff_us( previousButtonPressTs, mostRecentButtonPressTs ) < ( DOUBLE_PRESS_MAX_GAP_MS * 1000LL ) )
+    {
+        // Log the double button press
+        g_globalData.doublePressRegisteredTimestamp = get_absolute_time();
+        return true;
+    }
+    return false;
+}
+
+static inline void m_infoStateMoveToNextScreen( void )
+{
+    t_infoScreen newState = g_globalData.infoMode;
+    bool newStateChecked = false;
+    while( newStateChecked == false )
+    {
+        // Try a new info screen
+        switch( newState )
+        {
+            case e_infoScreen_dryTank:
+            {
+                newState = e_infoScreen_binDayLandfill;
+            }
+            break;
+            case e_infoScreen_binDayLandfill:
+            {
+                newState = e_infoScreen_binDayRecycling;
+            }
+            break;
+            case e_infoScreen_binDayRecycling:
+            {
+                newState = e_infoScreen_standard;
+            }
+            break;
+            case e_infoScreen_standard:
+            {
+                newState = e_infoScreen_dryTank;
+            }
+            break;
+            case e_infoScreen_propaganda:
+            {
+                // I'm not sure what to do here yet,
+                // this screen can only be dismissed by a hold
+                // or by waiting
+            }
+            default:
+            {
+                newState = e_infoScreen_standard;
+            }
+        }
+        // Check that this is a valid screen to show
+        switch( newState )
+        {
+            case e_infoScreen_dryTank:
+            {
+                if( g_globalData.tankState == e_tankState_dry )
+                {
+                    newStateChecked = true;
+                }
+            }
+            break;
+            case e_infoScreen_binDayLandfill:
+            {
+                if( m_checkLandfillBinday() )
+                {
+                    newStateChecked = true;
+                }
+            }
+            break;
+            case e_infoScreen_binDayRecycling:
+            {
+                if( m_checkRecyclingBinday() )
+                {
+                    newStateChecked = true;
+                }
+            }
+            break;
+            case e_infoScreen_standard:
+            {
+                // This screen is always valid
+                newStateChecked = true;
+            }
+            break;
+            default:
+            {
+                printf( "default reached in m_infoStateMoveToNextScreen\n" );
+            }
+        }
     }
 }

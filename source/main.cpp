@@ -384,6 +384,7 @@ static inline void m_loopInfo( void )
             // If a long press was not detected, process the 
             if( m_checkRepeatedButtonPress() )
             {
+                printf("Repeated button press\n");
                 // Process a repeated button press
                 // Set to propapropapropaganganda mode
                 g_globalData.infoMode = e_infoScreen_propaganda;
@@ -393,6 +394,7 @@ static inline void m_loopInfo( void )
             }
             else if( m_checkDoubleButtonPress() )
             {
+                printf("Double button press\n");
                 // Process a double button press
                 // Do not show the help screen
                 g_globalData.showHelpScreen = false;
@@ -403,11 +405,13 @@ static inline void m_loopInfo( void )
             }
             else
             {
+                printf("Single button press\n");
                 // Process a single button press
                 // Show help if not already shown, hide help if already shown
                 if( g_globalData.showHelpScreen == false )
                 {
                     g_globalData.showHelpScreen = true;
+                    g_globalData.helpScreenInitialised = false;
                     g_globalData.altScreenTimeoutTimestamp = make_timeout_time_ms( HELP_SCREEN_TIMEOUT_MS );
                 }
                 else
@@ -439,7 +443,8 @@ static inline void m_loopInfo( void )
     else if( g_globalData.infoMode == e_infoScreen_dryTank )
     {
         // Check if the help screen should be shown
-        if( g_globalData.showHelpScreen == true )
+        if( ( g_globalData.showHelpScreen == true )
+            && ( g_globalData.helpScreenInitialised == false ) )
         {
             m_clearScreen();
             if( g_globalData.settingsReadOk == false )
@@ -467,6 +472,7 @@ static inline void m_loopInfo( void )
                 oled_terminalWrite( "Hold:" );
                 oled_terminalWrite( "- Dismiss notification" );
             }
+            g_globalData.helpScreenInitialised = true;
         }
         // Check if this is the first time this screen is running
         else if( g_globalData.infoMode != g_globalData.displayedInfo )
@@ -496,7 +502,8 @@ static inline void m_loopInfo( void )
             // Do nothing, bin day checking is only possible with the SD card present
         }
         // Check if the help screen should be shown
-        else if( g_globalData.showHelpScreen == true )
+        else if( ( g_globalData.showHelpScreen == true )
+            && ( g_globalData.helpScreenInitialised == false ) )
         {
             m_clearScreen();
             oled_terminalInit( 20, TERMINAL_ERROR_COLOUR );
@@ -515,6 +522,7 @@ static inline void m_loopInfo( void )
             // Show the bin day icon
             g_globalData.displayedInfo = g_globalData.infoMode;
         }
+        g_globalData.helpScreenInitialised = true;
     }
     else if( g_globalData.infoMode == e_infoScreen_binDayRecycling )
     {
@@ -523,7 +531,8 @@ static inline void m_loopInfo( void )
             // Do nothing, bin day checking is only possible with the SD card present
         }
         // Check if the help screen should be shown
-        else if( g_globalData.showHelpScreen == true )
+        else if( ( g_globalData.showHelpScreen == true )
+            && ( g_globalData.helpScreenInitialised == false ) )
         {
             m_clearScreen();
             oled_terminalInit( 20, TERMINAL_ERROR_COLOUR );
@@ -534,6 +543,7 @@ static inline void m_loopInfo( void )
             oled_terminalWrite( "- Next info" );
             oled_terminalWrite( "Hold:" );
             oled_terminalWrite( "- Dismiss notification" );
+            g_globalData.helpScreenInitialised = true;
         }
         // Check if this is the first time this screen is running
         else if( g_globalData.infoMode != g_globalData.displayedInfo )
@@ -546,7 +556,8 @@ static inline void m_loopInfo( void )
     else if( g_globalData.infoMode == e_infoScreen_standard )
     {
         // Check if the help screen should be shown
-        if( g_globalData.showHelpScreen == true )
+        if( ( g_globalData.showHelpScreen == true )
+            && ( g_globalData.helpScreenInitialised == false ) )
         {
             m_clearScreen();
             if( g_globalData.settingsReadOk == false )
@@ -574,6 +585,7 @@ static inline void m_loopInfo( void )
                 oled_terminalWrite( "Hold:" );
                 oled_terminalWrite( "- Water now" );
             }
+            g_globalData.helpScreenInitialised = true;
         }
         // Check if this is the first time this screen is running
         else if( g_globalData.infoMode != g_globalData.displayedInfo )

@@ -1,12 +1,12 @@
-#ifndef SETTINGS_HPP
-#define SETTINGS_HPP
+#ifndef SETTINGS_READER_HPP
+#define SETTINGS_READER_HPP
 
 #include "pico/stdlib.h"
 
 #include "sd_card.h"
 #include "ff.h"
 
-#include "global.hpp"
+#include "settings.hpp"
 
 int settings_readFromSDCard( t_globalData* globalDataPtr );
 

@@ -5,7 +5,7 @@
 #include "hardware/gpio.h"
 #include "hardware/adc.h"
 
-#include "global.hpp"
+#include "settings.hpp"
 
 /*
  * Function: pump_init
@@ -19,7 +19,7 @@
  *
  * returns: void
  */
-void pump_init( t_globalData* globalDataPtr, uint8_t pumpControlPin, uint8_t pumpAdcPin );
+void pump_init( uint8_t pumpControlPin, uint8_t pumpAdcPin );
 
 /*
  * Function: pump_runMs

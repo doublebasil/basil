@@ -19,18 +19,14 @@
 #define GAUGE_COLOUR            ( 0xBE9C )
 #define GAUGE_REDLINE_COLOUR    ( 0b1110000000000000 )
 
-static t_globalData* m_globalDataPtr;
 static uint8_t m_pumpControlPin;
 static uint8_t m_adcInput;
 static bool m_isInitialised = false;
 
-static void m_drawRedline( uint16_t redlinePosition );
+static void m_drawRedline( t_globalData* globalDataPtr, uint16_t redlinePosition );
 
-void pump_init( t_globalData* globalDataPtr, uint8_t pumpControlPin, uint8_t pumpAdcPin )
+void pump_init( uint8_t pumpControlPin, uint8_t pumpAdcPin )
 {
-    // Save the global data pointer
-    m_globalDataPtr = globalDataPtr;
-
     // Initialise the motor control pin as GPIO out, and set to low
     gpio_init( pumpControlPin );
     gpio_set_dir( pumpControlPin, GPIO_OUT );
@@ -67,7 +63,7 @@ void pump_init( t_globalData* globalDataPtr, uint8_t pumpControlPin, uint8_t pum
     m_isInitialised = true;
 }
 
-void pump_run( void )
+void pump_run( t_globalData* globalDataPtr )
 {
     if( m_isInitialised == false )
         return;
@@ -80,14 +76,14 @@ void pump_run( void )
     bool emergencyStop = false;
 
     // Draw the redline
-    m_drawRedline( ADC_THRESHOLD );
+    m_drawRedline( globalDataPtr, ADC_THRESHOLD );
     // Init the loading circle, to be used as a motor gauge
-    oled_loadingCircleInit( m_globalDataPtr->displayWidth / 2, m_globalDataPtr->displayHeight / 2,
+    oled_loadingCircleInit( globalDataPtr->hardwareData.displayWidth / 2, globalDataPtr->hardwareData.displayHeight / 2,
                             GAUGE_OUTER_RADIUS, GAUGE_INNER_RADIUS, GAUGE_COLOUR );
 
     // Calculate end times
     settleEndTime = make_timeout_time_ms( PUMP_SETTLE_TIME_MS );
-    pumpEndTime = make_timeout_time_ms( m_globalDataPtr->wateringDurationMs );
+    pumpEndTime = make_timeout_time_ms( globalDataPtr->sdCardSettings.wateringDurationMs );
 
     // Start the pump
     gpio_put( m_pumpControlPin, 1 );
@@ -129,10 +125,10 @@ void pump_run( void )
 }
 
 // Draw the redline for the loading circle which shows where the dry detection cutoff is
-static void m_drawRedline( uint16_t redlinePosition )
+static void m_drawRedline( t_globalData* globalDataPtr, uint16_t redlinePosition )
 {
-    uint8_t displayCenterX = m_globalDataPtr->displayWidth / 2;
-    uint8_t displayCenterY = m_globalDataPtr->displayHeight / 2;
+    uint8_t displayCenterX = globalDataPtr->hardwareData.displayWidth / 2;
+    uint8_t displayCenterY = globalDataPtr->hardwareData.displayHeight / 2;
 
     if( redlinePosition > 0x0FFF )
         redlinePosition = 0x0FFF;

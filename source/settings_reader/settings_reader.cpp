@@ -159,7 +159,7 @@ int settings_readFromSDCard( t_globalData* globalDataPtr )
 int settings_writeToSDCard( t_globalData* globalDataPtr )
 {
     // Don't write the settings if reading the SD card failed
-    if( globalDataPtr->settingsReadOk == false )
+    if( globalDataPtr->hardwareData.settingsReadOk == false )
         return 100;
 
     FRESULT fr;
@@ -187,11 +187,11 @@ int settings_writeToSDCard( t_globalData* globalDataPtr )
     // Note: f_printf returns the number of characters it wrote on sucess, or negative on fail
     // Note: remember to put \r\n at the end of each line
 
-    snprintf( textBuffer, sizeof( textBuffer ), "WIFI SSID: \"%s\"\r\n", globalDataPtr->wifiSsid );
+    snprintf( textBuffer, sizeof( textBuffer ), "WIFI SSID: \"%s\"\r\n", globalDataPtr->sdCardSettings.wifiSsid );
     if( ( f_printf( &fil, textBuffer ) < 0 ) )
         return 3;
     
-    snprintf( textBuffer, sizeof( textBuffer ), "WIFI PASSWORD: \"%s\"\r\n\r\n", globalDataPtr->wifiPassword );
+    snprintf( textBuffer, sizeof( textBuffer ), "WIFI PASSWORD: \"%s\"\r\n\r\n", globalDataPtr->sdCardSettings.wifiPassword );
     if( ( f_printf( &fil, textBuffer ) < 0 ) )
         return 4;
     
@@ -206,11 +206,11 @@ int settings_writeToSDCard( t_globalData* globalDataPtr )
     uint8_t stringLength = 0U;
     for( uint8_t i = 0U; i < MAX_NUMBER_OF_WATERING_TIMES; i++ )
     {
-        if( globalDataPtr->wateringTimes[i] >= 0 )
+        if( globalDataPtr->sdCardSettings.wateringTimes[i] >= 0 )
         {
             // Convert time to military
             militaryTime = 0U;
-            remainingTime = globalDataPtr->wateringTimes[i];
+            remainingTime = globalDataPtr->sdCardSettings.wateringTimes[i];
             while( remainingTime >= ( 10LL * 60LL * 60LL ) ) // Tens of hours
             {
                 remainingTime -= 10LL * 60LL * 60LL;
@@ -260,7 +260,7 @@ int settings_writeToSDCard( t_globalData* globalDataPtr )
     if( ( f_printf( &fil, textBuffer ) < 0 ) )
         return 6;
 
-    snprintf( textBuffer, sizeof( textBuffer ), "WATERING DURATION MS: \"%d\"\r\n", globalDataPtr->wateringDurationMs );
+    snprintf( textBuffer, sizeof( textBuffer ), "WATERING DURATION MS: \"%d\"\r\n", globalDataPtr->sdCardSettings.wateringDurationMs );
     if( ( f_printf( &fil, textBuffer ) < 0 ) )
         return 7;
 
@@ -291,7 +291,7 @@ int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting curre
                 // Outside of wifiSsid string bounds, error
                 return 1;
             }
-            globalDataPtr->wifiSsid[index] = settingsBuffer[index];
+            globalDataPtr->sdCardSettings.wifiSsid[index] = settingsBuffer[index];
             if( settingsBuffer[index] == 0 )
             {
                 stringWasTerminated = true;
@@ -316,7 +316,7 @@ int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting curre
                 // Outside of wifiPassword string bounds, error
                 return 1;
             }
-            globalDataPtr->wifiPassword[index] = settingsBuffer[index];
+            globalDataPtr->sdCardSettings.wifiPassword[index] = settingsBuffer[index];
             if( settingsBuffer[index] == 0 )
             {
                 stringWasTerminated = true;
@@ -403,14 +403,14 @@ int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting curre
             if( currentMinimum == -1 )
                 break;
 
-            globalDataPtr->wateringTimes[wateringTimesIndex] = currentMinimum;
+            globalDataPtr->sdCardSettings.wateringTimes[wateringTimesIndex] = currentMinimum;
             wateringTimes[minimumValueIndex] = -1;
             ++wateringTimesIndex;
         }
         // Fill the rest of the values with -1
         while( wateringTimesIndex < MAX_NUMBER_OF_WATERING_TIMES )
         {
-            globalDataPtr->wateringTimes[wateringTimesIndex] = -1;
+            globalDataPtr->sdCardSettings.wateringTimes[wateringTimesIndex] = -1;
             ++wateringTimesIndex;
         }
     }
@@ -446,7 +446,7 @@ int m_readSetting( t_globalData* globalDataPtr, t_sdCardReadCurrentSetting curre
             --bufferIndex;
         }
 
-        globalDataPtr->wateringDurationMs = runningCount;
+        globalDataPtr->sdCardSettings.wateringDurationMs = runningCount;
     }
 
     return 0;

@@ -5,7 +5,7 @@
  * error return for debugging
  */
 
-#include "settings.hpp"
+#include "settings_reader.hpp"
 
 #include "stdio.h"
 #include <string.h>

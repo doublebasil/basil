@@ -11,7 +11,7 @@
 /* --- FILES FOR THIS PROJECT --- */
 #include "oled.hpp"
 #include "pump.hpp"
-#include "settings.hpp"
+#include "settings_reader.hpp"
 #include "global.hpp"
 
 // Check that only the necessary parts of the oled code have been included. This saves several kB of RAM
@@ -90,7 +90,7 @@ static bool m_checkLandfillBinday( void );
 static void inline m_setSystemState( t_systemState state );
 static void m_clearScreen( void );
 static void m_timeToString( char* charArrayStart, uint8_t charArraySize, absolute_time_t timestamp );
-static void m_terminalLoadingBar( char* charArrayStart, uint8_t charArraySize, uint8_t percentageComplete );
+// static void m_terminalLoadingBar( char* charArrayStart, uint8_t charArraySize, uint8_t percentageComplete );
 static inline bool m_checkRepeatedButtonPress( void );
 static inline bool m_checkDoubleButtonPress( void );
 static inline void m_infoStateMoveToNextScreen( void );
@@ -882,42 +882,42 @@ static void m_timeToString( char* charArrayStart, uint8_t charArraySize, absolut
     snprintf( charArrayStart, charArraySize, "%02d:%02d:%02d", hours, minutes, (uint8_t) secondsRemaining );
 }
 
-// Create a loading bar string in the form [###    ]
-static void m_terminalLoadingBar( char* charArrayStart, uint8_t charArraySize, uint8_t percentageComplete )
-{
-    if( percentageComplete > 100 )
-        percentageComplete = 100;
+// // Create a loading bar string in the form [###    ]
+// static void m_terminalLoadingBar( char* charArrayStart, uint8_t charArraySize, uint8_t percentageComplete )
+// {
+//     if( percentageComplete > 100 )
+//         percentageComplete = 100;
     
-    char* charArrayPtr = charArrayStart;
-    uint8_t terminalWidth = oled_terminalGetWidthInCharacters();
-    uint8_t numberOfHashtags = percentageComplete * ( terminalWidth - 2U ) / 100U;
-    for( uint8_t index = 0U; index < terminalWidth; index++ )
-    {
-        if( index >= charArraySize )
-            break;
+//     char* charArrayPtr = charArrayStart;
+//     uint8_t terminalWidth = oled_terminalGetWidthInCharacters();
+//     uint8_t numberOfHashtags = percentageComplete * ( terminalWidth - 2U ) / 100U;
+//     for( uint8_t index = 0U; index < terminalWidth; index++ )
+//     {
+//         if( index >= charArraySize )
+//             break;
 
-        if( index == 0U )
-        {
-            *charArrayPtr = '[';
-        }
-        else if( index == ( terminalWidth - 1 ) )
-        {
-            *charArrayPtr = ']';
-            break;
-        }
-        else if( numberOfHashtags > 0 )
-        {
-            *charArrayPtr = '#';
-            --numberOfHashtags;
-        }
-        else
-        {
-            *charArrayPtr = ' ';
-        }
+//         if( index == 0U )
+//         {
+//             *charArrayPtr = '[';
+//         }
+//         else if( index == ( terminalWidth - 1 ) )
+//         {
+//             *charArrayPtr = ']';
+//             break;
+//         }
+//         else if( numberOfHashtags > 0 )
+//         {
+//             *charArrayPtr = '#';
+//             --numberOfHashtags;
+//         }
+//         else
+//         {
+//             *charArrayPtr = ' ';
+//         }
 
-        ++charArrayPtr;
-    }
-}
+//         ++charArrayPtr;
+//     }
+// }
 
 static inline bool m_checkRepeatedButtonPress( void )
 {

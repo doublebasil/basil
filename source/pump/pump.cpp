@@ -115,6 +115,9 @@ void pump_run( void )
     // Stop the pump
     gpio_put( m_pumpControlPin, 0 );
 
+    // UPDATE EXTERNAL DATA HERE
+    (void) emergencyStop;
+
     // Update the loading gauge
     oled_loadingCircleDisplay( (uint8_t) ( ( (uint32_t) adcValue * 252UL ) / 0x0FFFUL ) );
     sleep_ms( 50 );

@@ -4,7 +4,7 @@ add_executable(${PROJECT_NAME}
     oled/oled.cpp
     oled/intcos.cpp
     pump/pump.cpp
-    settings/settings.cpp
+    settings_reader/settings_reader.cpp
     QR-Code-generator/qrcodegen.c
     # Add other cpp files here, including their directory, e.g.
     # webserver/webserver.cpp
@@ -20,7 +20,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/oled
     ${CMAKE_CURRENT_LIST_DIR}/oled/font
     ${CMAKE_CURRENT_LIST_DIR}/pump
-    ${CMAKE_CURRENT_LIST_DIR}/settings
+    ${CMAKE_CURRENT_LIST_DIR}/settings_reader
     ${CMAKE_CURRENT_LIST_DIR}/QR-Code-generator
     # Add the folders that are needed for compile, e.g.
     # ${CMAKE_CURRENT_LIST_DIR}/webserver

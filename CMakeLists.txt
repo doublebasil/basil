@@ -23,8 +23,8 @@ project(${PROJECT_NAME} C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17) # CXX is c++
 
-# add_compile_options(-Wall -Werror -Wno-format-truncation)
-add_compile_options(-Wall -Wno-format-truncation)
+add_compile_options(-Wall -Werror -Wno-format-truncation)
+# add_compile_options(-Wall -Wno-format-truncation)
 
 pico_sdk_init()
 

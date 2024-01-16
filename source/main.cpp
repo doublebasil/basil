@@ -21,50 +21,7 @@ int main( void )
     // Set the system state to init
     system_setState( &globalData, e_systemState_init );
     
-    absolute_time_t loopEndTime;
-
-    // Run the program
-    while( true )
-    {
-        // Setup a 
-        loopEndTime = make_timeout_time_ms( MAIN_LOOP_TIME_PERIOD_MS );
-
-        // Check for button input
-
-        // Update the current state
-        switch( globalData.systemState )
-        {
-            case e_systemState_init:
-            {
-                smInit_update( &globalData );
-            }
-            break;
-            case e_systemState_idle:
-            {
-
-            }
-            break;
-            case e_systemState_info:
-            {
-
-            }
-            break;
-            case e_systemState_watering:
-            {
-
-            }
-            break;
-            default:
-            {
-                // Unknown state, set to idle
-                system_setState( &globalData, e_systemState_idle );
-                printf( "Unknown state in main loop\n" );
-            }
-            break;
-        }
-
-        sleep_until( loopEndTime );
-    }
+    system_run( &globalData );
 
     return 0;
 }

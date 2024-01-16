@@ -42,10 +42,6 @@ void smInit_init( t_globalData* globalDataPtr )
     // Initialise pump
     oled_terminalWrite( "Initialising pump" );
     pump_init( PUMP_CONTROL_PIN, PUMP_ADC_PIN );
-    // Initialise button
-    oled_terminalWrite( "Setup button GPIO" );
-    gpio_init( INPUT_BUTTON_PIN );
-    gpio_set_dir( INPUT_BUTTON_PIN, GPIO_IN );
     // Enable station (STA) mode for the WiFi chip
     oled_terminalWrite( "Enable STA mode" );
     cyw43_arch_enable_sta_mode();
@@ -64,12 +60,14 @@ void smInit_init( t_globalData* globalDataPtr )
     oled_terminalWrite( "Reading SDC...");
     if( settings_readFromSDCard( globalDataPtr ) != 0 )
     {
-        oled_terminalWrite( "Failed to read" );
+        globalDataPtr->hardwareData.settingsReadOk = false;
+        oled_terminalWrite( "FAILED to read" );
         oled_terminalWrite( "settings" );
         oled_terminalWrite( "" ); // YOU WERE HERE
     }
     else
     {
+        globalDataPtr->hardwareData.settingsReadOk = false;
         oled_terminalWrite( "Settings read" );
         oled_terminalWrite( "successfully" );
     }
@@ -77,6 +75,45 @@ void smInit_init( t_globalData* globalDataPtr )
 
 void smInit_update( t_globalData* globalDataPtr )
 {
+    // NEED TO DEBUG THIS
     // Check for user input
+    switch( globalDataPtr->leftButtonPendingInput )
+    {
+        case e_pendingInput_singlePress:
+        {
+            printf( "left button single press\n" );
+        }
+        break;
+        case e_pendingInput_spamPress:
+        {
+            printf( "left button REPEATED PRESS\n" );
+        }
+        break;
+        case e_pendingInput_none:
+        default:
+        {
+            // Do nothing
+        }
+        break;
+    }
+    switch( globalDataPtr->rightButtonPendingInput )
+    {
+        case e_pendingInput_singlePress:
+        {
+            printf( "right button single press\n" );
+        }
+        break;
+        case e_pendingInput_spamPress:
+        {
+            printf( "right button REPEATED PRESS\n" );
+        }
+        break;
+        case e_pendingInput_none:
+        default:
+        {
+            // Do nothing
+        }
+        break;
+    }
     // Check if the state has timed out
 }

@@ -18,8 +18,9 @@
 /* PUMP */
 #define PUMP_CONTROL_PIN        ( 21 )
 #define PUMP_ADC_PIN            ( 26 )
-/* INPUT BUTTON */
-#define INPUT_BUTTON_PIN        ( 2 )
+/* INPUT BUTTONS */
+#define LEFT_BUTTON_PIN         ( 3 )
+#define RIGHT_BUTTON_PIN        ( 2 )
 /* SD CARD SETTINGS */
 // Settings for the SD card are defined in source/no-OS-FatFS-SD-SPI-Rpi-Pico/FatFs_SPI/sd_driver/hw_config.c
 
@@ -33,12 +34,13 @@
 
 /* --- TERMINAL --- */
 #define TERMINAL_FONT_12                ( 12 )
+#define TERMINAL_FONT_20                ( 20 )
 #define TERMINAL_INIT_COLOUR            ( RGB565_FOREST_GREEN )
 
 /* --- TIMING AND BEHAVIOURS --- */
-#define MAIN_LOOP_TIME_PERIOD_MS        ( 50 )
-#define REPEATED_PRESSES_PRESS_COUNT    ( 10 ) // Number of quick presses to trigger a "repeated press"
-
+#define MAIN_LOOP_TIME_PERIOD_MS        ( 5000LL )
+#define SPAM_PRESS_COUNT                ( 10 ) // Number of quick presses to trigger a "spam press"
+#define SPAM_PRESS_TIME_LIMIT_MS        ( 1500LL )
 
 /* --- TYPEDEFS --- */
 typedef enum {
@@ -55,6 +57,12 @@ typedef enum {
     e_tankState_dry,
 } t_tankState;
 
+typedef enum { // IN REVERSE ORDER OF IMPORANCE
+    e_pendingInput_none,
+    e_pendingInput_singlePress,
+    e_pendingInput_spamPress,
+} t_pendingInput;
+
 /* SUB STRUCTS */
 typedef struct {
     char wifiSsid[WIFI_SSID_MAX_LEN];
@@ -69,6 +77,7 @@ typedef struct {
     uint8_t displayHeight;
 } t_hardwareData;
 
+/* GLOBAL DATA STRUCT */
 typedef struct {
     /* SUB STRUCTS */
     t_sdCardSettings sdCardSettings;
@@ -76,6 +85,9 @@ typedef struct {
     /* STATE MODEL */
     t_systemState systemState = e_systemState_notSet;
     t_tankState tankState = e_tankState_unknown;
+    /* INPUTS */
+    t_pendingInput leftButtonPendingInput;
+    t_pendingInput rightButtonPendingInput;
 } t_globalData;
 
 #endif // SETTINGS_HPP

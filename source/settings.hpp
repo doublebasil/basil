@@ -38,6 +38,7 @@
 #define TERMINAL_INIT_COLOUR            ( RGB565_FOREST_GREEN )
 
 /* --- TIMING AND BEHAVIOURS --- */
+#define DEBUG_VERBOSE                   ( 1 )
 #define MAIN_LOOP_TIME_PERIOD_MS        ( 50LL )
 #define SPAM_PRESS_COUNT                ( 10 ) // Number of quick presses to trigger a "spam press"
 #define SPAM_PRESS_TIME_LIMIT_MS        ( 1500LL )

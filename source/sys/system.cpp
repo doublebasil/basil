@@ -14,16 +14,21 @@ static void m_initialiseInputs( void );
 static void m_setupButton( t_button* buttonPtr, uint8_t buttonPin );
 static void m_checkSystemInputs( t_globalData* globalDataPtr );
 static t_pendingInput m_checkButton( t_button* buttonPtr );
+static void m_printStateChange( t_systemState from, t_systemState to );
 
 void system_setState( t_globalData* globalDataPtr, t_systemState state )
 {
+    // Print state changes if DEBUG_VERBOSE is enabled
+    m_printStateChange( globalDataPtr->systemState, state );
+
+    globalDataPtr->systemState = state;
+
     // Run the init function for the required state
     switch( state )
     {
         case e_systemState_init:
         {
             smInit_init( globalDataPtr );
-            globalDataPtr->systemState = state;
         }
         break;
         case e_systemState_idle:
@@ -166,4 +171,69 @@ static t_pendingInput m_checkButton( t_button* buttonPtr )
     }
 
     return pendingInput;
+}
+
+static void m_printStateChange( t_systemState from, t_systemState to )
+{
+#if defined(DEBUG_VERBOSE) && (DEBUG_VERBOSE==1)
+    char textBuffer1[15];
+    char textBuffer2[15];
+    switch( from )
+    {
+        case e_systemState_init:
+        {
+            snprintf( textBuffer1, sizeof( textBuffer1 ), "INIT" );
+        }
+        break;
+        case e_systemState_idle:
+        {
+            snprintf( textBuffer1, sizeof( textBuffer1 ), "IDLE" );
+        }
+        break;
+        case e_systemState_info:
+        {
+            snprintf( textBuffer1, sizeof( textBuffer1 ), "INFO" );
+        }
+        break;
+        case e_systemState_watering:
+        {
+            snprintf( textBuffer1, sizeof( textBuffer1 ), "WATERING" );
+        }
+        break;
+        default:
+        {
+            snprintf( textBuffer1, sizeof( textBuffer1 ), "UNKNOWN" );
+        }
+        break;
+    }
+    switch( to )
+    {
+        case e_systemState_init:
+        {
+            snprintf( textBuffer2, sizeof( textBuffer2 ), "INIT" );
+        }
+        break;
+        case e_systemState_idle:
+        {
+            snprintf( textBuffer2, sizeof( textBuffer2 ), "IDLE" );
+        }
+        break;
+        case e_systemState_info:
+        {
+            snprintf( textBuffer2, sizeof( textBuffer2 ), "INFO" );
+        }
+        break;
+        case e_systemState_watering:
+        {
+            snprintf( textBuffer2, sizeof( textBuffer2 ), "WATERING" );
+        }
+        break;
+        default:
+        {
+            snprintf( textBuffer2, sizeof( textBuffer2 ), "UNKNOWN" );
+        }
+        break;
+    }
+    printf( "State changed from %s to %s\n", textBuffer1, textBuffer2 );
+#endif
 }

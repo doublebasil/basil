@@ -6,6 +6,7 @@
 #include "sd_card.h"
 #include "ff.h"
 #include "settings_reader.hpp"
+#include "system.hpp"
 
 void smInit_init( t_globalData* globalDataPtr )
 {
@@ -71,11 +72,13 @@ void smInit_init( t_globalData* globalDataPtr )
         oled_terminalWrite( "Settings read" );
         oled_terminalWrite( "successfully" );
     }
+
+    // Setup a timeout for this state
+    globalDataPtr->stateTimeout = make_timeout_time_ms( INIT_STATE_TIMEOUT_MS );
 }
 
 void smInit_update( t_globalData* globalDataPtr )
 {
-    // NEED TO DEBUG THIS
     // Check for user input
     switch( globalDataPtr->leftButtonPendingInput )
     {
@@ -116,4 +119,9 @@ void smInit_update( t_globalData* globalDataPtr )
         break;
     }
     // Check if the state has timed out
+    if( absolute_time_diff_us( get_absolute_time(), globalDataPtr->stateTimeout ) < 0U )
+    {
+        // State has timed out
+        system_setState( globalDataPtr, e_systemState_idle );
+    }
 }

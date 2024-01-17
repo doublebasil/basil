@@ -7,12 +7,13 @@ typedef struct {
     bool previousButtonState;
 } t_button;
 
-static t_button leftButton;
-static t_button rightButton;
+static t_button m_leftButton;
+static t_button m_rightButton;
 
-static void m_setupButtons( void );
+static void m_initialiseInputs( void );
+static void m_setupButton( t_button* buttonPtr, uint8_t buttonPin );
 static void m_checkSystemInputs( t_globalData* globalDataPtr );
-static t_pendingInput m_checkButton( t_button button );
+static t_pendingInput m_checkButton( t_button* buttonPtr );
 
 void system_setState( t_globalData* globalDataPtr, t_systemState state )
 {
@@ -50,7 +51,7 @@ void system_setState( t_globalData* globalDataPtr, t_systemState state )
 
 void system_run( t_globalData* globalDataPtr )
 {
-    m_setupButtons();
+    m_initialiseInputs();
 
     absolute_time_t loopEndTime;
 
@@ -100,62 +101,67 @@ void system_run( t_globalData* globalDataPtr )
     }
 }
 
-static void m_setupButtons( void )
+static void m_initialiseInputs( void )
 {
-    // Left button
-    leftButton.pin = LEFT_BUTTON_PIN;
-    gpio_init( leftButton.pin );
-    gpio_set_dir( leftButton.pin, GPIO_IN );
+    m_setupButton( &m_leftButton, LEFT_BUTTON_PIN );
+    m_setupButton( &m_rightButton, RIGHT_BUTTON_PIN );
+}
+
+static void m_setupButton( t_button* buttonPtr, uint8_t buttonPin )
+{
+    buttonPtr->pin = buttonPin;
+    gpio_init( buttonPtr->pin );
+    gpio_set_dir( buttonPtr->pin, GPIO_IN );
     for( uint8_t index = 0U; index < SPAM_PRESS_COUNT; index++ )
     {
-        leftButton.buttonPressTimestamps[index] = nil_time;
+        buttonPtr->buttonPressTimestamps[index] = nil_time;
     }
-    leftButton.previousButtonState = false;
-    leftButton.buttonPressTsIndex = 0U;
-    // Right button
-    rightButton.pin = RIGHT_BUTTON_PIN;
-    gpio_init( rightButton.pin );
-    gpio_set_dir( rightButton.pin, GPIO_IN );
-    for( uint8_t index = 0U; index < SPAM_PRESS_COUNT; index++ )
-    {
-        rightButton.buttonPressTimestamps[index] = nil_time;
-    }
-    rightButton.previousButtonState = false;
-    rightButton.buttonPressTsIndex = 0U;
+    buttonPtr->buttonPressTsIndex = 0U;
+    buttonPtr->previousButtonState = false;
 }
 
 // Check for button inputs
 static void m_checkSystemInputs( t_globalData* globalDataPtr )
 {
-    globalDataPtr->leftButtonPendingInput = m_checkButton( leftButton );
-    globalDataPtr->rightButtonPendingInput = m_checkButton( rightButton );
+    globalDataPtr->leftButtonPendingInput = m_checkButton( &m_leftButton );
+    globalDataPtr->rightButtonPendingInput = m_checkButton( &m_rightButton );
 }
 
-static t_pendingInput m_checkButton( t_button button )
+static t_pendingInput m_checkButton( t_button* buttonPtr )
 {
     t_pendingInput pendingInput;
 
-    if( gpio_get( button.pin ) )
+    if( gpio_get( buttonPtr->pin ) )
     {
-        pendingInput = e_pendingInput_singlePress;
-
-        // Log the button press timestamp and check for a spam press
-        button.buttonPressTimestamps[button.buttonPressTsIndex] = get_absolute_time();
-        absolute_time_t mostRecentButtonPressTimestamp = button.buttonPressTimestamps[button.buttonPressTsIndex];
-        
-        ++button.buttonPressTsIndex;
-        if( button.buttonPressTsIndex >= SPAM_PRESS_COUNT )
-            button.buttonPressTsIndex = 0U;
-        
-        absolute_time_t previousButtonPressTimestamp = button.buttonPressTimestamps[button.buttonPressTsIndex];
-        int64_t timeDiffUs = absolute_time_diff_us( previousButtonPressTimestamp, mostRecentButtonPressTimestamp );
-        if( timeDiffUs < ( SPAM_PRESS_TIME_LIMIT_MS * 1000LL ) )
+        if( buttonPtr->previousButtonState == false )
         {
-            pendingInput = e_pendingInput_spamPress;
+            buttonPtr->previousButtonState = true;
+
+            pendingInput = e_pendingInput_singlePress;
+
+            // Log the button press timestamp and check for a spam press
+            buttonPtr->buttonPressTimestamps[buttonPtr->buttonPressTsIndex] = get_absolute_time();
+            absolute_time_t mostRecentButtonPressTimestamp = buttonPtr->buttonPressTimestamps[buttonPtr->buttonPressTsIndex];
+            
+            ++buttonPtr->buttonPressTsIndex;
+            if( buttonPtr->buttonPressTsIndex >= SPAM_PRESS_COUNT )
+                buttonPtr->buttonPressTsIndex = 0U;
+            
+            absolute_time_t previousButtonPressTimestamp = buttonPtr->buttonPressTimestamps[buttonPtr->buttonPressTsIndex];
+            int64_t timeDiffUs = absolute_time_diff_us( previousButtonPressTimestamp, mostRecentButtonPressTimestamp );
+            if( timeDiffUs < ( SPAM_PRESS_TIME_LIMIT_MS * 1000LL ) )
+            {
+                pendingInput = e_pendingInput_spamPress;
+            }
+        }
+        else
+        {
+            pendingInput = e_pendingInput_none;
         }
     }
     else
     {
+        buttonPtr->previousButtonState = false;
         pendingInput = e_pendingInput_none;
     }
 

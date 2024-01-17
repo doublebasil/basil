@@ -38,9 +38,10 @@
 #define TERMINAL_INIT_COLOUR            ( RGB565_FOREST_GREEN )
 
 /* --- TIMING AND BEHAVIOURS --- */
-#define MAIN_LOOP_TIME_PERIOD_MS        ( 5000LL )
+#define MAIN_LOOP_TIME_PERIOD_MS        ( 50LL )
 #define SPAM_PRESS_COUNT                ( 10 ) // Number of quick presses to trigger a "spam press"
 #define SPAM_PRESS_TIME_LIMIT_MS        ( 1500LL )
+#define INIT_STATE_TIMEOUT_MS           ( 10000LL )
 
 /* --- TYPEDEFS --- */
 typedef enum {
@@ -85,6 +86,7 @@ typedef struct {
     /* STATE MODEL */
     t_systemState systemState = e_systemState_notSet;
     t_tankState tankState = e_tankState_unknown;
+    absolute_time_t stateTimeout = nil_time;
     /* INPUTS */
     t_pendingInput leftButtonPendingInput;
     t_pendingInput rightButtonPendingInput;

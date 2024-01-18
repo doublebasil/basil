@@ -16,11 +16,16 @@
 
 int main( void )
 {
+    // Initialise the stdio
+    stdio_init_all();
+
     // Create the global data struct
     t_globalData globalData;
+
     // Set the system state to init
     system_setState( &globalData, e_systemState_init );
     
+    // Run the system
     system_run( &globalData );
 
     return 0;

@@ -39,6 +39,8 @@
 
 /* --- TIMING AND BEHAVIOURS --- */
 #define DEBUG_VERBOSE                   ( 1 )
+#define DEFAULT_WATERING_PERIOD_HOURS   ( 12 ) // If SD card or NTP fails
+#define DEFAULT_WATERING_DURATION_MS    ( 1000 ) // If SD card or NTP fails
 #define MAIN_LOOP_TIME_PERIOD_MS        ( 50LL )
 #define SPAM_PRESS_COUNT                ( 10 ) // Number of quick presses to trigger a "spam press"
 #define SPAM_PRESS_TIME_LIMIT_MS        ( 1500LL )

@@ -33,7 +33,7 @@ void system_setState( t_globalData* globalDataPtr, t_systemState state )
         break;
         case e_systemState_idle:
         {
-            
+            smIdle_init( globalDataPtr );
         }
         break;
         case e_systemState_info:
@@ -79,7 +79,7 @@ void system_run( t_globalData* globalDataPtr )
             break;
             case e_systemState_idle:
             {
-
+                smIdle_update( globalDataPtr );
             }
             break;
             case e_systemState_info:

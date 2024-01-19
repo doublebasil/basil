@@ -12,8 +12,9 @@ static inline void m_initialiseOled( void );
 static inline void m_initialiseCyw43( void );
 static inline void m_initialisePump( void );
 static inline void m_initialiseSdCardDriver( void );
-static inline void m_sdSuccessfulReadMessage( void );
+static inline void m_sdSuccessfulReadMessage( t_globalData* globalDataPtr );
 static inline void m_sdFailedReadMessage( void );
+static inline void m_attemptWifiConnection( t_globalData* globalDataPtr );
 
 void smInit_init( t_globalData* globalDataPtr )
 {
@@ -31,7 +32,7 @@ void smInit_init( t_globalData* globalDataPtr )
     m_initialiseSdCardDriver();
     // Now attempt to read the SD card
     oled_terminalWrite( "" );
-    oled_terminalWrite( "Reading SDC...");
+    oled_terminalWrite( "Reading SDC..." );
     if( settings_readFromSDCard( globalDataPtr ) != 0 )
     {
         globalDataPtr->hardwareData.settingsReadOk = false;
@@ -40,7 +41,12 @@ void smInit_init( t_globalData* globalDataPtr )
     else
     {
         globalDataPtr->hardwareData.settingsReadOk = false;
-        m_sdSuccessfulReadMessage();
+        m_sdSuccessfulReadMessage( globalDataPtr );
+
+        // Attempt to connect to wifi with the SSID and password read from the SD card
+        m_attemptWifiConnection( globalDataPtr );
+
+        // If WiFi connection was successful
     }
 
     // Setup a timeout for this state
@@ -54,14 +60,11 @@ void smInit_update( t_globalData* globalDataPtr )
     {
         case e_pendingInput_singlePress:
         {
-            printf( "left button single press\n" );
+            // Change to the info state
+            system_setState( globalDataPtr, e_systemState_info );
         }
         break;
         case e_pendingInput_spamPress:
-        {
-            printf( "left button REPEATED PRESS\n" );
-        }
-        break;
         case e_pendingInput_none:
         default:
         {
@@ -73,13 +76,11 @@ void smInit_update( t_globalData* globalDataPtr )
     {
         case e_pendingInput_singlePress:
         {
-            printf( "right button single press\n" );
+            // Change to the info state
+            system_setState( globalDataPtr, e_systemState_info );
         }
         break;
         case e_pendingInput_spamPress:
-        {
-            printf( "right button REPEATED PRESS\n" );
-        }
         break;
         case e_pendingInput_none:
         default:
@@ -88,6 +89,7 @@ void smInit_update( t_globalData* globalDataPtr )
         }
         break;
     }
+
     // Check if the state has timed out
     if( absolute_time_diff_us( get_absolute_time(), globalDataPtr->stateTimeout ) < 0U )
     {
@@ -153,29 +155,29 @@ static inline void m_initialiseSdCardDriver( void )
     }
 }
 
-static inline void m_sdSuccessfulReadMessage( void )
+static inline void m_sdSuccessfulReadMessage( t_globalData* globalDataPtr )
 {
     oled_terminalWrite( "Settings read" );
     oled_terminalWrite( "successfully" );
     oled_terminalWrite( "" );
     oled_terminalWrite( "Watering at:" );
     char text[20];
+    int32_t secondsSinceMidnight;
     for( uint8_t index = 0U; index < MAX_NUMBER_OF_WATERING_TIMES; index++ )
     {
-        snprintf( text, sizeof( text ), "%02d:%02d:%02d", 
-             );
+        secondsSinceMidnight = globalDataPtr->sdCardSettings.wateringTimes[index];
+        if( secondsSinceMidnight == -1 )
+            break;
+        
+        snprintf( text, sizeof( text ), "-> %02lld:%02lld", 
+            secondsSinceMidnight / ( 60LL * 60LL ),
+            ( secondsSinceMidnight % ( 60LL * 60LL ) ) / 60LL );
+        
+        oled_terminalWrite( text );
     }
-
-    /*
     
-      uint64_t t = 65700;
-  uint16_t h = (t / (60ULL * 60ULL));
-//   uint16_t m = (uint8_t) (( t - ((uint64_t) h * 60ULL * 60ULL) ) / (60ULL));
-  uint16_t m = (t % (60ULL * 60ULL)) / (60ULL);
-  cout << h << endl;
-  cout << m << endl;
-    
-    */
+    snprintf( text, sizeof( text ), "for %d ms", globalDataPtr->sdCardSettings.wateringDurationMs );
+    oled_terminalWrite( text );
 }
 
 static inline void m_sdFailedReadMessage( void )
@@ -189,4 +191,37 @@ static inline void m_sdFailedReadMessage( void )
     oled_terminalWrite( text );
     snprintf( text, sizeof( text ), "hours for %d ms", DEFAULT_WATERING_DURATION_MS );
     oled_terminalWrite( text );
+}
+
+static inline void m_attemptWifiConnection( t_globalData* globalDataPtr )
+{
+    oled_terminalWrite( "" );
+    oled_terminalWrite( "Connecting to:" );
+    oled_terminalWrite( globalDataPtr->sdCardSettings.wifiSsid );
+    
+    int result = cyw43_arch_wifi_connect_timeout_ms( globalDataPtr->sdCardSettings.wifiSsid, 
+        globalDataPtr->sdCardSettings.wifiPassword, 
+        CYW43_AUTH_WPA2_AES_PSK, 
+        30000 );
+
+    if( result == 0 )
+    {
+        // Connection successful
+        ++( globalDataPtr->wifiData.connectionAttempts );
+        globalDataPtr->wifiData.connectionSuccess = true;
+        oled_terminalWrite( "Connected" );
+    }
+    else
+    {
+        // Connection failed
+        ++( globalDataPtr->wifiData.connectionAttempts );
+        globalDataPtr->wifiData.connectionSuccess = false;
+        globalDataPtr->wifiData.reconnectionAttemptTime = make_timeout_time_ms( (uint32_t) WIFI_CONNECTION_RETRY_DELAY_MINS * 60ULL );
+        
+        oled_terminalWrite( "Failed" );
+        oled_terminalWrite( "Will retry in" );
+        char text[20];
+        snprintf( text, sizeof( text ), "%d minutes", WIFI_CONNECTION_RETRY_DELAY_MINS );
+        oled_terminalWrite( text );
+    }
 }

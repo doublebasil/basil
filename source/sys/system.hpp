@@ -3,6 +3,7 @@
 
 #include "settings.hpp"
 #include "sm_init.hpp"
+#include "sm_idle.hpp"
 
 void system_setState( t_globalData* globalDataPtr, t_systemState state );
 

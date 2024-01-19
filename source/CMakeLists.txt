@@ -8,6 +8,7 @@ add_executable(${PROJECT_NAME}
     sys/system.cpp
     sys/init/sm_init.cpp
     sys/idle/sm_idle.cpp
+    sys/wifi/sm_wifi.cpp
     QR-Code-generator/qrcodegen.c
     # Add other cpp files here, including their directory, e.g.
     # webserver/webserver.cpp
@@ -28,6 +29,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/sys
     ${CMAKE_CURRENT_LIST_DIR}/sys/init
     ${CMAKE_CURRENT_LIST_DIR}/sys/idle
+    ${CMAKE_CURRENT_LIST_DIR}/sys/wifi
     # Add the folders that are needed for compile, e.g.
     # ${CMAKE_CURRENT_LIST_DIR}/webserver
     )

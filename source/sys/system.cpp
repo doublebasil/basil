@@ -46,6 +46,11 @@ void system_setState( t_globalData* globalDataPtr, t_systemState state )
 
         }
         break;
+        case e_systemState_wifi:
+        {
+            smWifi_init( globalDataPtr );
+        }
+        default:
         case e_systemState_notSet:
         {
             // Do nothing, this should never happen
@@ -90,6 +95,11 @@ void system_run( t_globalData* globalDataPtr )
             case e_systemState_watering:
             {
 
+            }
+            break;
+            case e_systemState_wifi:
+            {
+                smWifi_update( globalDataPtr );
             }
             break;
             default:

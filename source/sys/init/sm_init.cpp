@@ -14,7 +14,6 @@ static inline void m_initialisePump( void );
 static inline void m_initialiseSdCardDriver( void );
 static inline void m_sdSuccessfulReadMessage( t_globalData* globalDataPtr );
 static inline void m_sdFailedReadMessage( void );
-static inline void m_attemptWifiConnection( t_globalData* globalDataPtr );
 
 void smInit_init( t_globalData* globalDataPtr )
 {
@@ -43,10 +42,9 @@ void smInit_init( t_globalData* globalDataPtr )
         globalDataPtr->hardwareData.settingsReadOk = false;
         m_sdSuccessfulReadMessage( globalDataPtr );
 
-        // Attempt to connect to wifi with the SSID and password read from the SD card
-        m_attemptWifiConnection( globalDataPtr );
-
-        // If WiFi connection was successful
+        // Change to the wifi state next loop, which will attempt to connect
+        // to the wifi router, and to the NTP server
+        system_setState( globalDataPtr, e_systemState_wifi );
     }
 
     // Setup a timeout for this state
@@ -191,37 +189,4 @@ static inline void m_sdFailedReadMessage( void )
     oled_terminalWrite( text );
     snprintf( text, sizeof( text ), "hours for %d ms", DEFAULT_WATERING_DURATION_MS );
     oled_terminalWrite( text );
-}
-
-static inline void m_attemptWifiConnection( t_globalData* globalDataPtr )
-{
-    oled_terminalWrite( "" );
-    oled_terminalWrite( "Connecting to:" );
-    oled_terminalWrite( globalDataPtr->sdCardSettings.wifiSsid );
-    
-    int result = cyw43_arch_wifi_connect_timeout_ms( globalDataPtr->sdCardSettings.wifiSsid, 
-        globalDataPtr->sdCardSettings.wifiPassword, 
-        CYW43_AUTH_WPA2_AES_PSK, 
-        30000 );
-
-    if( result == 0 )
-    {
-        // Connection successful
-        ++( globalDataPtr->wifiData.connectionAttempts );
-        globalDataPtr->wifiData.connectionSuccess = true;
-        oled_terminalWrite( "Connected" );
-    }
-    else
-    {
-        // Connection failed
-        ++( globalDataPtr->wifiData.connectionAttempts );
-        globalDataPtr->wifiData.connectionSuccess = false;
-        globalDataPtr->wifiData.reconnectionAttemptTime = make_timeout_time_ms( (uint32_t) WIFI_CONNECTION_RETRY_DELAY_MINS * 60ULL );
-        
-        oled_terminalWrite( "Failed" );
-        oled_terminalWrite( "Will retry in" );
-        char text[20];
-        snprintf( text, sizeof( text ), "%d minutes", WIFI_CONNECTION_RETRY_DELAY_MINS );
-        oled_terminalWrite( text );
-    }
 }

@@ -31,11 +31,13 @@
 
 /* --- RGB565 COLOURS --- */
 #define RGB565_FOREST_GREEN                 ( 0x2444 )
+#define RGB565_PURE_BLUE                    ( 0b0000000000011111 )
 
 /* --- TERMINAL --- */
 #define TERMINAL_FONT_12                    ( 12 )
 #define TERMINAL_FONT_20                    ( 20 )
 #define TERMINAL_INIT_COLOUR                ( RGB565_FOREST_GREEN )
+#define TERMINAL_WIFI_COLOUR                ( RGB565_PURE_BLUE )
 
 /* --- TIMING AND BEHAVIOURS --- */
 #define DEBUG_VERBOSE                       ( 1 )
@@ -45,6 +47,7 @@
 #define SPAM_PRESS_COUNT                    ( 10 ) // Number of quick presses to trigger a "spam press"
 #define SPAM_PRESS_TIME_LIMIT_MS            ( 1500LL )
 #define INIT_STATE_TIMEOUT_MS               ( 10000LL )
+#define WIFI_STATE_TIMEOUT_MS               ( 10000LL )
 #define WIFI_CONNECTION_MAX_ATTEMPTS        ( 3 )
 #define WIFI_CONNECTION_RETRY_DELAY_MINS    ( 10 )
 
@@ -55,6 +58,7 @@ typedef enum {
     e_systemState_idle,
     e_systemState_info,
     e_systemState_watering,
+    e_systemState_wifi,
 } t_systemState;
 
 typedef enum {

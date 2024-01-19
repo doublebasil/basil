@@ -231,6 +231,13 @@ void oled_clear( void )
     m_chipDeselect();
 }
 
+void oled_deinitAll( void )
+{
+    oled_terminalDeinit();
+    oled_loadingBarDeinit();
+    oled_loadingCircleDeinit();
+}
+
 void oled_setPixel( uint8_t x, uint8_t y, uint16_t colour )
 {
     if( ( x < 0U ) || ( y < 0U ) || ( x > m_displayWidth ) || ( y > m_displayHeight ) )
@@ -475,10 +482,14 @@ int oled_loadingBarInit( uint8_t x1, uint8_t x2, uint8_t y1, uint8_t y2,
 
 bool oled_loadingBarIsInit( void )
 {
+#if defined(OLED_INCLUDE_LOADING_BAR_HORIZONTAL) || defined(OLED_INCLUDE_LOADING_CIRCLE)
     if( m_loadingBarState == e_loadingBarStateHorizontal )
         return true;
     else
         return false;
+#else
+    return false;
+#endif
 }
 
 void oled_loadingBarDisplay( uint8_t progress ) 
@@ -561,8 +572,11 @@ void oled_loadingBarDisplay( uint8_t progress )
     m_loadingBarBitmapNext = ( m_loadingBarBitmapNext == e_loadingBarBitmap1Next ) ? e_loadingBarBitmap2Next : e_loadingBarBitmap1Next;
 }
 
+#endif /* OLED_INCLUDE_LOADING_BAR_HORIZONTAL */
+
 void oled_loadingBarDeinit( void )
 {
+#if defined(OLED_INCLUDE_LOADING_BAR_HORIZONTAL)
     if( m_loadingBarState != e_loadingBarStateHorizontal )
         return;
 
@@ -578,9 +592,8 @@ void oled_loadingBarDeinit( void )
     }
 
     m_loadingBarState = e_loadingBarStateUninitialised;
+#endif
 }
-
-#endif /* OLED_INCLUDE_LOADING_BAR_HORIZONTAL */
 
 #ifdef OLED_INCLUDE_LOADING_CIRCLE
 
@@ -634,10 +647,14 @@ int oled_loadingCircleInit( uint8_t originX, uint8_t originY, uint8_t outerRadiu
 
 bool oled_loadingCircleIsInit( void )
 {
+#if defined(OLED_INCLUDE_LOADING_CIRCLE) || defined(OLED_INCLUDE_LOADING_BAR_HORIZONTAL)
     if( m_loadingBarState == e_loadingBarStateCircle )
         return true;
     else
         return false;
+#else
+    return false;
+#endif
 }
 
 void oled_loadingCircleDisplay( uint8_t progress )
@@ -783,8 +800,11 @@ void oled_loadingCircleDisplay( uint8_t progress )
     
 }
 
+#endif /* OLED_INCLUDE_LOADING_CIRCLE */
+
 void oled_loadingCircleDeinit( void )
 {
+#if defined(OLED_INCLUDE_LOADING_CIRCLE)
     if( m_loadingBarState != e_loadingBarStateCircle )
         return;
 
@@ -800,9 +820,8 @@ void oled_loadingCircleDeinit( void )
     }
 
     m_loadingBarState = e_loadingBarStateUninitialised;
+#endif
 }
-
-#endif /* OLED_INCLUDE_LOADING_CIRCLE */
 
 #if defined OLED_INCLUDE_FONT8 || defined OLED_INCLUDE_FONT12 || defined OLED_INCLUDE_FONT16 || defined OLED_INCLUDE_FONT20 || defined OLED_INCLUDE_FONT24
 void oled_writeChar( uint8_t x, uint8_t y, char character, uint8_t fontSize, uint16_t colour )
@@ -1025,10 +1044,14 @@ int oled_terminalInit( uint8_t fontSize, uint16_t colour )
 
 bool oled_terminalIsInit( void )
 {
+#if defined(OLED_INCLUDE_FONT8) || (defined OLED_INCLUDE_FONT12) || defined(OLED_INCLUDE_FONT16) || defined(OLED_INCLUDE_FONT20) || defined(OLED_INCLUDE_FONT24)
     if( m_terminalBitmapState == e_terminalUninitialised )
         return false;
     else
         return true;
+#else
+    return false;
+#endif
 }
 
 uint8_t oled_terminalGetWidthInCharacters( void )
@@ -1118,8 +1141,11 @@ void oled_terminalSetNewColour( uint16_t colour )
     m_terminalPushBitmap();
 }
 
+#endif /* defined OLED_INCLUDE_FONT8 || defined OLED_INCLUDE_FONT12 || defined OLED_INCLUDE_FONT16 || defined OLED_INCLUDE_FONT20 || defined OLED_INCLUDE_FONT24 */
+
 void oled_terminalDeinit( void ) 
 {
+#if defined(OLED_INCLUDE_FONT8) || defined(OLED_INCLUDE_FONT12) || (defined OLED_INCLUDE_FONT16) || defined(OLED_INCLUDE_FONT20) || defined(OLED_INCLUDE_FONT24)
     if( m_terminalBitmapState == e_terminalUninitialised )
         return;
 
@@ -1136,9 +1162,8 @@ void oled_terminalDeinit( void )
     }
     // Change the bitmap state module scope variable to uninitialised
     m_terminalBitmapState = e_terminalUninitialised;
+#endif
 }
-
-#endif /* defined OLED_INCLUDE_FONT8 || defined OLED_INCLUDE_FONT12 || defined OLED_INCLUDE_FONT16 || defined OLED_INCLUDE_FONT20 || defined OLED_INCLUDE_FONT24 */
 
 #ifdef OLED_INCLUDE_SD_IMAGES
 

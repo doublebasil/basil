@@ -52,6 +52,18 @@ int oled_init( int8_t dinPin, int8_t clkPin, int8_t csPin, int8_t dcPin,
 void oled_clear( void );
 
 /*
+ * Function: oled_deinitAll
+ * --------------------
+ * Deinitialises any terminal or loading bar/circle which currently
+ * has a heap allocation
+ *
+ * parameters: none
+ *
+ * returns: void
+ */
+void oled_deinitAll( void );
+
+/*
  * Function: oled_setPixel
  * --------------------
  * Set the colour of a specific pixel
@@ -145,6 +157,8 @@ bool oled_loadingBarIsInit( void );
  */
 void oled_loadingBarDisplay( uint8_t progress );
 
+#endif /* OLED_INCLUDE_LOADING_BAR_HORIZONTAL */
+
 /*
  * Function: oled_loadingBarDeinit
  * --------------------
@@ -155,8 +169,6 @@ void oled_loadingBarDisplay( uint8_t progress );
  * returns: void
  */
 void oled_loadingBarDeinit();
-
-#endif /* OLED_INCLUDE_LOADING_BAR_HORIZONTAL */
 
 #ifdef OLED_INCLUDE_LOADING_CIRCLE
 /*
@@ -199,6 +211,8 @@ bool oled_loadingCircleIsInit( void );
  */
 void oled_loadingCircleDisplay( uint8_t progress );
 
+#endif /* OLED_INCLUDE_LOADING_CIRCLE */
+
 /*
  * Function: oled_loadingCircleDeinit
  * --------------------
@@ -210,9 +224,7 @@ void oled_loadingCircleDisplay( uint8_t progress );
  */
 void oled_loadingCircleDeinit( void );
 
-#endif /* OLED_INCLUDE_LOADING_CIRCLE */
-
-#if defined OLED_INCLUDE_FONT8 || defined OLED_INCLUDE_FONT12 || defined OLED_INCLUDE_FONT16 || defined OLED_INCLUDE_FONT20 || defined OLED_INCLUDE_FONT24
+#if defined(OLED_INCLUDE_FONT8) || (defined OLED_INCLUDE_FONT12) || defined(OLED_INCLUDE_FONT16) || defined(OLED_INCLUDE_FONT20) || defined(OLED_INCLUDE_FONT24)
 #define OLED_FONT8_WIDTH                ( 5U )
 #define OLED_FONT12_WIDTH               ( 7U )
 #define OLED_FONT16_WIDTH               ( 11U )
@@ -360,6 +372,8 @@ void oled_terminalSetLine( uint8_t line );
  */
 void oled_terminalSetNewColour( uint16_t colour );
 
+#endif /* defined OLED_INCLUDE_FONT8 || defined OLED_INCLUDE_FONT12 || defined OLED_INCLUDE_FONT16 || defined OLED_INCLUDE_FONT20 || defined OLED_INCLUDE_FONT24 */
+
 /*
  * Function: oled_terminalClear
  * --------------------
@@ -371,8 +385,6 @@ void oled_terminalSetNewColour( uint16_t colour );
  * returns: void
  */
 void oled_terminalDeinit( void );
-
-#endif /* defined OLED_INCLUDE_FONT8 || defined OLED_INCLUDE_FONT12 || defined OLED_INCLUDE_FONT16 || defined OLED_INCLUDE_FONT20 || defined OLED_INCLUDE_FONT24 */
 
 #ifdef OLED_INCLUDE_SD_IMAGES
 

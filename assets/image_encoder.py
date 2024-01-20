@@ -13,7 +13,7 @@ Use the OPTIONS constant to change what gets converted
 
 # OPTIONS: input file name, convert to this width, convert to this height, output to this txt file
 OPTIONS = [
-    ["1F3DC.svg", 84, 84, "desert84.txtx"],
+    ["1F3DC.svg", 84, 84, "desert84.txt"],
     ["1F33F.svg", 100, 100, "herb100.txt"],
     ["26A0.svg", 100, 100, "warning100.txt"],
     ["26A1.svg", 64, 64, "bolt64.txt"],

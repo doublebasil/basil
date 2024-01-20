@@ -104,6 +104,7 @@ static tFontTable* m_terminalFontTablePtr;
 static uint8_t m_terminalBitmapBytesPerRow;
 static uint16_t m_terminalBitmapCallocSize;
 static bool m_terminalIsLineTemp;
+static uint8_t m_terminalHeightInLines;
 #endif // defined OLED_INCLUDE_FONT8 || defined OLED_INCLUDE_FONT12 || defined OLED_INCLUDE_FONT16 || defined OLED_INCLUDE_FONT20 || defined OLED_INCLUDE_FONT24
 
 
@@ -1011,6 +1012,8 @@ int oled_terminalInit( uint8_t fontSize, uint16_t colour )
         break;
     }
 
+    m_terminalHeightInLines = m_displayHeight / m_terminalFontSize;
+
     // Need enough bits to cover the the screen width, might have a few bits unused per row
     // This is so that bytes for each row align, which makes scrolling much much easier
     m_terminalBitmapBytesPerRow = (uint16_t) m_displayWidth / 8U;
@@ -1054,6 +1057,20 @@ bool oled_terminalIsInit( void )
 #endif
 }
 
+int oled_terminalSetHeight( uint8_t newHeightInLines )
+{
+    if( newHeightInLines == 0U )
+        return 1; // Invalid, too few lines
+    else if( newHeightInLines > ( m_displayHeight / m_terminalFontSize ) )
+        return 1; // Invalid, too many lines for the screen size
+    
+    m_terminalCurrentLine = ( m_terminalCurrentLine < newHeightInLines ) ? m_terminalCurrentLine : newHeightInLines;
+
+    m_terminalHeightInLines = newHeightInLines;
+
+    return 0;
+}
+
 uint8_t oled_terminalGetWidthInCharacters( void )
 {
     if( m_terminalBitmapState == e_terminalUninitialised )
@@ -1074,9 +1091,8 @@ void oled_terminalWrite( const char text[] )
 {
     m_terminalWrite( text );
     
-    uint8_t terminalHeightInLines = m_displayHeight / m_terminalFontSize;
     // Update module scope variables
-    if( m_terminalCurrentLine < terminalHeightInLines )
+    if( m_terminalCurrentLine < m_terminalHeightInLines )
         ++m_terminalCurrentLine;
     m_terminalIsLineTemp = false;
 }
@@ -1423,14 +1439,12 @@ static inline void m_terminalWrite( const char text[] )
         currentBitmapPtr = m_terminalBitmapPtr1;
     }
 
-    uint8_t terminalHeightInLines = m_displayHeight / m_terminalFontSize;
-
     // If the last line temporary was copy from the previous bitmap except for the temporary line
     if( ( m_terminalIsLineTemp == true ) )
     {
         // Copy everything except the previous line
         uint16_t copyEndIndex;
-        if( m_terminalCurrentLine != terminalHeightInLines )
+        if( m_terminalCurrentLine != m_terminalHeightInLines )
         {
             copyEndIndex = (uint16_t) m_terminalCurrentLine * (uint16_t) m_terminalBitmapBytesPerRow * (uint16_t) m_terminalFontSize;
         }
@@ -1452,7 +1466,7 @@ static inline void m_terminalWrite( const char text[] )
             desiredBitmapPtr[bitmapIndex] = 0x00U;
     }
     // If we've ran out of lines, scroll down when copying to the other bitmap
-    else if( m_terminalCurrentLine == terminalHeightInLines )
+    else if( m_terminalCurrentLine == m_terminalHeightInLines )
     {
         uint16_t sourceByte = 0U;
         // Shift everything up
@@ -1463,7 +1477,7 @@ static inline void m_terminalWrite( const char text[] )
         }
 
         // Erase the bottom of the bitmap, so we can put our own text on it
-        sourceByte = ( terminalHeightInLines - 1 ) * m_terminalFontSize * m_terminalBitmapBytesPerRow;
+        sourceByte = ( m_terminalHeightInLines - 1 ) * m_terminalFontSize * m_terminalBitmapBytesPerRow;
         while( sourceByte < m_terminalBitmapCallocSize )
         {
             desiredBitmapPtr[sourceByte] = 0x00U; // Background colour
@@ -1481,7 +1495,7 @@ static inline void m_terminalWrite( const char text[] )
         // And then erase the line we want to write on, in case the terminal set line function has been used
         uint16_t index;
         // Set the index starting point
-        if( m_terminalCurrentLine != terminalHeightInLines )
+        if( m_terminalCurrentLine != m_terminalHeightInLines )
         {
             index = (uint16_t) m_terminalCurrentLine * (uint16_t) m_terminalBitmapBytesPerRow * (uint16_t) m_terminalFontSize;
         }
@@ -1504,7 +1518,7 @@ static inline void m_terminalWrite( const char text[] )
     // These positions are of the glyph origins
     uint8_t xCurrentTextPosition = 0U;
     uint8_t yCurrentTextPosition;
-    if( m_terminalCurrentLine == terminalHeightInLines )
+    if( m_terminalCurrentLine == m_terminalHeightInLines )
     {
         // If the display just scrolled, we need to write on the previous line else we'll be writing off the display
         yCurrentTextPosition = ( m_terminalCurrentLine - 1 ) * m_terminalFontSize;

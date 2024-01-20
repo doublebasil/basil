@@ -2,14 +2,14 @@
 #define OLED_HPP
 
 /* Settings for this module ------------------------------------------------ */
-// #define OLED_INCLUDE_TEST_FUNCTION
+#define OLED_INCLUDE_TEST_FUNCTION
 #define OLED_INCLUDE_LOADING_BAR_HORIZONTAL
 #define OLED_INCLUDE_LOADING_CIRCLE
-// #define OLED_INCLUDE_FONT8                      // Uses ~760 bytes
+#define OLED_INCLUDE_FONT8                      // Uses ~760 bytes
 #define OLED_INCLUDE_FONT12                     // Uses ~1144 bytes
-// #define OLED_INCLUDE_FONT16                     // Uses ~3044 bytes
+#define OLED_INCLUDE_FONT16                     // Uses ~3044 bytes
 #define OLED_INCLUDE_FONT20                     // Uses ~3804 bytes
-// #define OLED_INCLUDE_FONT24                     // Uses ~6844 bytes
+#define OLED_INCLUDE_FONT24                     // Uses ~6844 bytes
 #define OLED_WRITE_TEXT_CHARACTER_GAP     ( 0 ) // Number of pixels between characters
 #define OLED_INCLUDE_SD_IMAGES
 #define OLED_INCLUDE_QR_GENERATOR
@@ -290,6 +290,18 @@ int oled_terminalInit( uint8_t fontSize, uint16_t colour );
  * returns: true if the terminal is initialised
  */
 bool oled_terminalIsInit( void );
+
+/*
+ * Function: oled_terminalSetHeight
+ * --------------------
+ * Set the max height of the terminal in lines. By default, the terminal init
+ * function will make the terminal as tall as possible.
+ *
+ * newHeightInLines: Maximum height of the terminal in lines
+ *
+ * returns: true if successful
+ */
+int oled_terminalSetHeight( uint8_t newHeightInLines );
 
 /*
  * Function: oled_terminalGetWidthInCharacters

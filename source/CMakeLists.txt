@@ -1,6 +1,5 @@
 add_executable(${PROJECT_NAME}
     main.cpp
-    ntp/ntp.cpp
     oled/oled.cpp
     oled/intcos.cpp
     pump/pump.cpp
@@ -20,7 +19,6 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/no-OS-FatFS-SD-SPI-Rpi-Pico/FatFs_SPI
 # Might be the wrong way to do it but I couldn't figure out the right way
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
-    ${CMAKE_CURRENT_LIST_DIR}/ntp
     ${CMAKE_CURRENT_LIST_DIR}/oled
     ${CMAKE_CURRENT_LIST_DIR}/oled/font
     ${CMAKE_CURRENT_LIST_DIR}/pump

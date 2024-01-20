@@ -3,3 +3,4 @@ __pycache__/
 source/autogen_fsdata.c
 .vscode/
 output/
+temp.*

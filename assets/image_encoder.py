@@ -13,15 +13,15 @@ Use the OPTIONS constant to change what gets converted
 
 # OPTIONS: input file name, convert to this width, convert to this height, output to this txt file
 OPTIONS = [
-    ["1F3DC.svg", 84, 84, "desert84.txt"],
-    ["1F33F.svg", 100, 100, "herb100.txt"],
-    ["26A0.svg", 100, 100, "warning100.txt"],
-    ["26A1.svg", 64, 64, "bolt64.txt"],
-    ["274C.svg", 49, 49, "cross49.txt"],
-    ["2714.svg", 49, 49, "tick49.txt"],
-    ["E254.svg", 49, 49, "wifi49.txt"],
-    ["bluebin84.png", 84, 84, "bluebin84.txt"],
-    ["greenbin84.png", 84, 84, "greenbin84.txt"],
+    # ["1F3DC.svg", 84, 84, "desert84.txt"],
+    # ["1F33F.svg", 100, 100, "herb100.txt"],
+    # ["26A0.svg", 100, 100, "warning100.txt"],
+    # ["26A1.svg", 64, 64, "bolt64.txt"],
+    ["274C.svg", 64, 64, "cross64.txt"],
+    ["2714.svg", 64, 64, "tick64.txt"],
+    ["E254.svg", 64, 64, "wifi64.txt"],
+    # ["bluebin84.png", 84, 84, "bluebin84.txt"],
+    # ["greenbin84.png", 84, 84, "greenbin84.txt"],
 ]
 
 from PIL import Image
@@ -52,7 +52,7 @@ def main():
 
         # Extra bit for SVG files
         if os.path.splitext(source_file)[1] == ".svg":
-            os.system("convert " + source_file + " -resize " + str(output_image_width) + "x" + str(output_image_height) + "! temp.png")
+            os.system("convert -background black -flatten " + source_file + " -resize " + str(output_image_width) + "x" + str(output_image_height) + "! temp.png")
             source_file = "temp.png"
 
         # Open the image

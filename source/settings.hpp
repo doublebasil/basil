@@ -89,9 +89,13 @@ typedef struct {
 } t_hardwareData;
 
 typedef struct {
-    bool connectionSuccess = false;
+    /* WIFI */
+    bool connectionSuccess = false; // Once 
     uint8_t connectionAttempts = 0U;
     absolute_time_t reconnectionAttemptTime = nil_time;
+    /* NTP */
+    absolute_time_t ntpLastRecivedTime = nil_time;
+    bool ntpFatal = false; // If something irrecoverable happened in the NTP process
 } t_wifiData;
 
 /* GLOBAL DATA STRUCT */

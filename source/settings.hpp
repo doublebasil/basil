@@ -48,6 +48,7 @@
 #define SPAM_PRESS_TIME_LIMIT_MS            ( 1500LL )
 #define INIT_STATE_TIMEOUT_MS               ( 20000LL )
 #define WIFI_STATE_TIMEOUT_MS               ( 20000LL )
+#define INIT_TO_WIFI_DELAY_MS               ( 3000ULL )
 #define WIFI_CONNECTION_MAX_ATTEMPTS        ( 3 )
 #define WIFI_CONNECTION_RETRY_DELAY_MINS    ( 1 )
 

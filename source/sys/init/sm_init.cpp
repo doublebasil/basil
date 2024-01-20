@@ -8,6 +8,8 @@
 #include "settings_reader.hpp"
 #include "system.hpp"
 
+absolute_time_t m_setWifiStateTimeout = nil_time;
+
 static inline void m_initialiseOled( void );
 static inline void m_initialiseCyw43( void );
 static inline void m_initialisePump( void );
@@ -42,9 +44,8 @@ void smInit_init( t_globalData* globalDataPtr )
         globalDataPtr->hardwareData.settingsReadOk = false;
         m_sdSuccessfulReadMessage( &(globalDataPtr->sdCardSettings) );
 
-        // Change to the wifi state next loop, which will attempt to connect
-        // to the wifi router, and to the NTP server
-        system_setState( globalDataPtr, e_systemState_wifi );
+        // Change to the wifi state after this delay
+        m_setWifiStateTimeout = make_timeout_time_ms( INIT_TO_WIFI_DELAY_MS );
     }
 
     // Setup a timeout for this state
@@ -59,7 +60,8 @@ void smInit_update( t_globalData* globalDataPtr )
         case e_pendingInput_singlePress:
         {
             // Change to the info state
-            system_setState( globalDataPtr, e_systemState_info );
+            if( is_nil_time( m_setWifiStateTimeout ) == true )
+                system_setState( globalDataPtr, e_systemState_info );
         }
         break;
         case e_pendingInput_spamPress:
@@ -75,7 +77,8 @@ void smInit_update( t_globalData* globalDataPtr )
         case e_pendingInput_singlePress:
         {
             // Change to the info state
-            system_setState( globalDataPtr, e_systemState_info );
+            if( is_nil_time( m_setWifiStateTimeout ) == true )
+                system_setState( globalDataPtr, e_systemState_info );
         }
         break;
         case e_pendingInput_spamPress:
@@ -88,8 +91,17 @@ void smInit_update( t_globalData* globalDataPtr )
         break;
     }
 
+    if( is_nil_time( m_setWifiStateTimeout ) == false )
+    {
+        if( absolute_time_diff_us( get_absolute_time(), m_setWifiStateTimeout ) < 0U )
+        {
+            system_setState( globalDataPtr, e_systemState_wifi );
+        }
+    }
     // Check if the state has timed out
-    if( absolute_time_diff_us( get_absolute_time(), globalDataPtr->stateTimeout ) < 0U )
+    // This statement will not be reached if a m_setWifiStateTimeout has been set
+    else if( ( is_nil_time( globalDataPtr->stateTimeout ) )
+        || ( absolute_time_diff_us( get_absolute_time(), globalDataPtr->stateTimeout ) < 0U ) )
     {
         // State has timed out
         system_setState( globalDataPtr, e_systemState_idle );

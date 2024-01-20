@@ -4,19 +4,29 @@
 #include "pico/cyw43_arch.h"
 #include "system.hpp"
 
-static void m_connectToWifi( t_globalData* globalDataPtr )
+static void m_connectToWifi( t_globalData* globalDataPtr );
 
 void smWifi_init( t_globalData* globalDataPtr )
 {
-    // Clear the screen
-    oled_clear();
-    oled_deinitAll();
-
-    // Setup a terminal
-    oled_terminalInit( 12, RGB565_PURE_BLUE );
+    // Check if a terminal is already initialised
+    if( oled_terminalIsInit() )
+    {
+        // Reuse existing terminal
+        oled_terminalWrite( "--WiFi--" );
+    }
+    else
+    {
+        // Clear the screen 
+        oled_clear();
+        oled_deinitAll();
+        // Make a new terminal
+        oled_terminalInit( 12, TERMINAL_WIFI_COLOUR );
+        oled_terminalWrite( "WiFi Reattempt" );
+    }
 
     // Attempt to wifi if needed
-    m_connectToWifi();
+    m_connectToWifi( globalDataPtr );
+    // If wifi connection is present, attempt to connect to an NTP server
 
     // Create a timeout for this state
     globalDataPtr->stateTimeout = make_timeout_time_ms( WIFI_STATE_TIMEOUT_MS );
@@ -69,10 +79,14 @@ void smWifi_update( t_globalData* globalDataPtr )
 
 static void m_connectToWifi( t_globalData* globalDataPtr )
 {
+    char text[20];
+
     // Check if a connection to wifi is needed
     if( globalDataPtr->wifiData.connectionSuccess == true )
+    {
         return; // Connection already present
-    else if( globalDataPtr->wifiData.connectionAttempts == WIFI_CONNECTION_MAX_ATTEMPTS)
+    }
+    else if( globalDataPtr->wifiData.connectionAttempts == WIFI_CONNECTION_MAX_ATTEMPTS )
     {
         // Too many connection attempts
         globalDataPtr->wifiData.reconnectionAttemptTime = nil_time;
@@ -83,7 +97,49 @@ static void m_connectToWifi( t_globalData* globalDataPtr )
     else
     {
         // Attempt to connect
-        // YOU WERE HERE, SEE BELOW COMMENTED FUNCTION
+        oled_terminalWrite( "Connecting to:" );
+        oled_terminalWrite( globalDataPtr->sdCardSettings.wifiSsid );
+
+        int result = cyw43_arch_wifi_connect_timeout_ms( globalDataPtr->sdCardSettings.wifiSsid, 
+            globalDataPtr->sdCardSettings.wifiPassword, 
+            CYW43_AUTH_WPA2_AES_PSK, 
+            30000 );
+
+        ++( globalDataPtr->wifiData.connectionAttempts );
+
+        if( result == 0 )
+        {
+            globalDataPtr->wifiData.connectionSuccess = true;
+            globalDataPtr->wifiData.reconnectionAttemptTime = nil_time;
+
+            oled_terminalWrite( "Success" );
+        }
+        else
+        {
+            globalDataPtr->wifiData.connectionSuccess = false;
+
+            oled_terminalWrite( "Failed" );
+
+            if( globalDataPtr->wifiData.connectionAttempts == WIFI_CONNECTION_MAX_ATTEMPTS )
+            {
+                globalDataPtr->wifiData.reconnectionAttemptTime = nil_time;
+
+                oled_terminalWrite( "Max connection" );
+                oled_terminalWrite( "attempts reached" );
+            }
+            else
+            {
+                globalDataPtr->wifiData.reconnectionAttemptTime = make_timeout_time_ms( (uint32_t) WIFI_CONNECTION_RETRY_DELAY_MINS * 60LL * 1000LL );
+
+                oled_terminalWrite( "Retry scheduled" );
+                if( WIFI_CONNECTION_RETRY_DELAY_MINS == 1 )
+                    snprintf( text, sizeof( text ), "in %d minute", WIFI_CONNECTION_RETRY_DELAY_MINS );
+                else
+                    snprintf( text, sizeof( text ), "in %d minutes", WIFI_CONNECTION_RETRY_DELAY_MINS );
+                
+                oled_terminalWrite( text );
+            }
+        }
     }
 }
 

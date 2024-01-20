@@ -2,3 +2,4 @@ build/
 __pycache__/
 source/autogen_fsdata.c
 .vscode/
+output/

@@ -12,7 +12,7 @@ static inline void m_initialiseOled( void );
 static inline void m_initialiseCyw43( void );
 static inline void m_initialisePump( void );
 static inline void m_initialiseSdCardDriver( void );
-static inline void m_sdSuccessfulReadMessage( t_globalData* globalDataPtr );
+static inline void m_sdSuccessfulReadMessage( t_sdCardSettings* sdCardSettingsPtr );
 static inline void m_sdFailedReadMessage( void );
 
 void smInit_init( t_globalData* globalDataPtr )
@@ -40,7 +40,7 @@ void smInit_init( t_globalData* globalDataPtr )
     else
     {
         globalDataPtr->hardwareData.settingsReadOk = false;
-        m_sdSuccessfulReadMessage( globalDataPtr );
+        m_sdSuccessfulReadMessage( &(globalDataPtr->sdCardSettings) );
 
         // Change to the wifi state next loop, which will attempt to connect
         // to the wifi router, and to the NTP server
@@ -153,7 +153,7 @@ static inline void m_initialiseSdCardDriver( void )
     }
 }
 
-static inline void m_sdSuccessfulReadMessage( t_globalData* globalDataPtr )
+static inline void m_sdSuccessfulReadMessage( t_sdCardSettings* sdCardSettingsPtr )
 {
     oled_terminalWrite( "Settings read" );
     oled_terminalWrite( "successfully" );
@@ -163,7 +163,7 @@ static inline void m_sdSuccessfulReadMessage( t_globalData* globalDataPtr )
     int32_t secondsSinceMidnight;
     for( uint8_t index = 0U; index < MAX_NUMBER_OF_WATERING_TIMES; index++ )
     {
-        secondsSinceMidnight = globalDataPtr->sdCardSettings.wateringTimes[index];
+        secondsSinceMidnight = sdCardSettingsPtr->wateringTimes[index];
         if( secondsSinceMidnight == -1 )
             break;
         
@@ -174,7 +174,7 @@ static inline void m_sdSuccessfulReadMessage( t_globalData* globalDataPtr )
         oled_terminalWrite( text );
     }
     
-    snprintf( text, sizeof( text ), "for %d ms", globalDataPtr->sdCardSettings.wateringDurationMs );
+    snprintf( text, sizeof( text ), "for %d ms", sdCardSettingsPtr->wateringDurationMs );
     oled_terminalWrite( text );
 }
 

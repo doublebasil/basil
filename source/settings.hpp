@@ -46,10 +46,10 @@
 #define MAIN_LOOP_TIME_PERIOD_MS            ( 50LL )
 #define SPAM_PRESS_COUNT                    ( 10 ) // Number of quick presses to trigger a "spam press"
 #define SPAM_PRESS_TIME_LIMIT_MS            ( 1500LL )
-#define INIT_STATE_TIMEOUT_MS               ( 10000LL )
-#define WIFI_STATE_TIMEOUT_MS               ( 10000LL )
+#define INIT_STATE_TIMEOUT_MS               ( 20000LL )
+#define WIFI_STATE_TIMEOUT_MS               ( 20000LL )
 #define WIFI_CONNECTION_MAX_ATTEMPTS        ( 3 )
-#define WIFI_CONNECTION_RETRY_DELAY_MINS    ( 10 )
+#define WIFI_CONNECTION_RETRY_DELAY_MINS    ( 1 )
 
 /* --- TYPEDEFS --- */
 typedef enum {

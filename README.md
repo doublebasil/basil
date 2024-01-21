@@ -1,9 +1,5 @@
-# Plant watering project
+I realised this project was way too overambitious for my skill level and the time that I have
 
-Some sort of electrical diagram would be a good idea.
-
-# Program overview
-
-## Initalisation
+I'm going to create a more basic version called basil2
 
 
